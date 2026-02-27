@@ -19,6 +19,15 @@ description: Use when coding in this repository to enforce mandatory skill loadi
 - Split larger goals into smaller tasks with checkpoints and independent verification.
 - Avoid bundling unrelated refactors into the same task.
 
+## Plan and Timestamp Sync (Required)
+1. Ensure `plan/` exists at repository root before editing.
+2. For each task, create or update one plan file in `plan/` named:
+   - `YYYY-MM-DD-HHMM-<task>.md`
+3. After every meaningful file change, append a progress line with local timestamp:
+   - format: `- [HH:mm:ss] <what changed> (<status>)`
+4. Keep the plan file synchronized during implementation, not only at task end.
+5. At completion, sync the final summary from the plan file to `docs/development-progress.md`.
+
 ## Module Size and Structure Rules
 - Target module size: around 400 lines.
 - Soft limit: 400 lines. Hard split trigger: around 450 lines.
@@ -33,8 +42,9 @@ description: Use when coding in this repository to enforce mandatory skill loadi
 1. Run relevant checks (`pnpm lint`, `pnpm typecheck`, `cargo test --manifest-path src-tauri/Cargo.toml`, or narrowed equivalents).
 2. Update developer documentation for behavior or workflow changes.
 3. Append a new entry to `docs/development-progress.md` with:
-   - date
+   - date and time
    - task title
+   - related plan file in `plan/`
    - changed files
    - verification commands and result
    - next follow-up item (if any)

@@ -63,3 +63,26 @@ Use this file as a required append-only task log after each completed task.
   - Updated AGENTS and README entries to force the constraints in AI code flow.
 - Next step:
   - Enforce this checklist on the next `src-tauri` code change and verify with `cargo test`.
+
+## 2026-02-27 10:08 - Add plan directory and timestamp sync workflow
+- Scope:
+  - Added a root `plan/` directory for per-task planning and time-sequenced progress tracking.
+  - Updated project skill rules to require timestamped sync updates during implementation.
+  - Added reusable plan template and task-level plan record.
+- Related plan file in `plan/`:
+  - `plan/2026-02-27-1007-plan-folder-skill-sync.md`
+- Changed files:
+  - `skills/project-aicode-workflow/SKILL.md`
+  - `plan/README.md`
+  - `plan/TEMPLATE.md`
+  - `plan/2026-02-27-1007-plan-folder-skill-sync.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `git status --short -- plan skills/project-aicode-workflow/SKILL.md docs/development-progress.md`
+  - result: expected changes detected (`docs/development-progress.md`, `skills/project-aicode-workflow/SKILL.md`, and new `plan/` directory).
+- Documentation updated:
+  - Added `plan/README.md` and `plan/TEMPLATE.md`
+  - Updated workflow rule in `skills/project-aicode-workflow/SKILL.md`
+  - Logged this change in `docs/development-progress.md`
+- Next step:
+  - Use `plan/YYYY-MM-DD-HHMM-<task>.md` for each new task and append timestamp lines after each meaningful change.
