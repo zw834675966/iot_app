@@ -1,8 +1,6 @@
 import dayjs from "dayjs";
-import { readdir, stat } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { sum, formatBytes } from "@pureadmin/utils";
 import {
   name,
   version,
@@ -54,9 +52,7 @@ const wrapperEnv = (envConf: Recordable): ViteEnv => {
     VITE_PORT: 8848,
     VITE_PUBLIC_PATH: "",
     VITE_ROUTER_HISTORY: "",
-    VITE_CDN: false,
-    VITE_HIDE_HOME: "false",
-    VITE_COMPRESSION: "none"
+    VITE_HIDE_HOME: "false"
   };
 
   for (const envName of Object.keys(envConf)) {
@@ -76,35 +72,4 @@ const wrapperEnv = (envConf: Recordable): ViteEnv => {
   }
   return ret;
 };
-
-const fileListTotal: number[] = [];
-
-/** 获取指定文件夹中所有文件的总大小 */
-const getPackageSize = options => {
-  const { folder = "dist", callback, format = true } = options;
-  readdir(folder, (err, files: string[]) => {
-    if (err) throw err;
-    let count = 0;
-    const checkEnd = () => {
-      ++count == files.length &&
-        callback(format ? formatBytes(sum(fileListTotal)) : sum(fileListTotal));
-    };
-    files.forEach((item: string) => {
-      stat(`${folder}/${item}`, async (err, stats) => {
-        if (err) throw err;
-        if (stats.isFile()) {
-          fileListTotal.push(stats.size);
-          checkEnd();
-        } else if (stats.isDirectory()) {
-          getPackageSize({
-            folder: `${folder}/${item}/`,
-            callback: checkEnd
-          });
-        }
-      });
-    });
-    files.length === 0 && callback(0);
-  });
-};
-
-export { root, pathResolve, alias, __APP_INFO__, wrapperEnv, getPackageSize };
+export { root, pathResolve, alias, __APP_INFO__, wrapperEnv };

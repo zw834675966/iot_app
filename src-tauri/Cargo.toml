@@ -1,0 +1,52 @@
+# =============================================================================
+# pure-admin-thin Tauri 桌面应用 — Cargo 包配置
+# =============================================================================
+
+[package]
+name = "pure_admin_thin_tauri"
+version = "0.1.0"
+description = "pure-admin-thin desktop app powered by Tauri"
+authors = ["pure-admin contributors"]
+license = "MIT"
+repository = "https://github.com/pure-admin/pure-admin-thin"
+edition = "2024"        # Rust Edition 2024
+rust-version = "1.85"   # 最低支持的 Rust 版本
+
+# 参考文档：https://doc.rust-lang.org/cargo/reference/manifest.html
+
+# -----------------------------------------------------------------------------
+# 库目标配置
+# -----------------------------------------------------------------------------
+# - staticlib: 用于 iOS 静态链接
+# - cdylib:    用于 Android 动态链接
+# - rlib:      用于桌面端（Windows/macOS/Linux）及单元测试
+[lib]
+name = "pure_admin_thin_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# -----------------------------------------------------------------------------
+# 构建依赖 — 仅在编译期使用
+# -----------------------------------------------------------------------------
+[build-dependencies]
+tauri-build = { version = "2.5.4", features = [] }  # Tauri 编译期代码生成
+
+# -----------------------------------------------------------------------------
+# 运行时依赖
+# -----------------------------------------------------------------------------
+[dependencies]
+serde_json = "1.0"                                  # JSON 序列化/反序列化
+serde = { version = "1.0", features = ["derive"] }  # 通用序列化框架（含派生宏）
+thiserror = "2.0"                                   # 错误类型派生宏
+log = "0.4"                                         # 日志门面（Facade）
+tauri = { version = "2.10.0", features = [] }        # Tauri 核心运行时
+tauri-plugin-log = "2"                               # Tauri 日志插件（开发模式使用）
+
+# -----------------------------------------------------------------------------
+# Lint 配置 — 编译器与 Clippy 检查规则
+# -----------------------------------------------------------------------------
+[lints.rust]
+unsafe_code = "warn"      # 对 unsafe 代码发出警告（项目原则上禁止使用）
+
+[lints.clippy]
+all = "warn"              # 启用 Clippy 全部默认检查
+pedantic = "warn"         # 启用更严格的代码风格检查

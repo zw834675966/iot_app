@@ -240,11 +240,11 @@ div:focus {
 
 .clearfix {
   &::after {
-    display: block;
-    height: 0;
     clear: both;
-    font-size: 0;
+    display: block;
     visibility: hidden;
+    height: 0;
+    font-size: 0;
     content: " ";
   }
 }

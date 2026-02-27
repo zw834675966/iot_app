@@ -6,7 +6,11 @@
 
 ## 介绍
 
-精简版是基于 [vue-pure-admin](https://github.com/pure-admin/vue-pure-admin) 提炼出的架子，包含主体功能，更适合实际项目开发，打包后的大小在全局引入 [element-plus](https://element-plus.org) 的情况下仍然低于 `2.3MB`，并且会永久同步完整版的代码。开启 `brotli` 压缩和 `cdn` 替换本地库模式后，打包大小低于 `350kb`
+精简版是基于 [vue-pure-admin](https://github.com/pure-admin/vue-pure-admin) 提炼出的架子，包含主体功能，更适合实际项目开发，打包后的大小在全局引入 [element-plus](https://element-plus.org) 的情况下仍然低于 `2.3MB`，并且会永久同步完整版的代码。当前仓库按“本地单程序运行”场景进行了工程精简（Tauri 本地运行优先）。
+
+## 项目详细介绍文档
+
+[点击查看（含 Tauri 桌面化集成说明）](./docs/project-introduction.md)
 
 ## 版本选择
 
@@ -41,3 +45,12 @@
 ## 许可证
 
 [MIT © 2020-present, pure-admin](./LICENSE)
+
+## AI Coding Rules For This Repo
+- Mandatory skill workflow: `skills/project-aicode-workflow/SKILL.md`
+- Global agent rules: `AGENTS.md`
+- Frontend scope rules: `src/AGENTS.md`
+- Rust scope rules: `src-tauri/AGENTS.md`
+- Tauri framework constraints: `docs/tauri-framework-constraints.md`
+- Deployment strategy: `docs/deployment-strategy.md`
+- Progress tracking: `docs/development-progress.md`

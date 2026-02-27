@@ -1,4 +1,4 @@
-import { http } from "@/utils/http";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 type Result = {
   success: boolean;
@@ -6,5 +6,10 @@ type Result = {
 };
 
 export const getAsyncRoutes = () => {
-  return http.request<Result>("get", "/get-async-routes");
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`getAsyncRoutes` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<Result>("auth_get_async_routes");
 };

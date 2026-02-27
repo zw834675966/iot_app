@@ -1,4 +1,4 @@
-import { http } from "@/utils/http";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 export type UserResult = {
   success: boolean;
@@ -36,10 +36,22 @@ export type RefreshTokenResult = {
 
 /** 登录 */
 export const getLogin = (data?: object) => {
-  return http.request<UserResult>("post", "/login", { data });
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`getLogin` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<UserResult>("auth_login", { payload: data ?? {} });
 };
 
 /** 刷新`token` */
 export const refreshTokenApi = (data?: object) => {
-  return http.request<RefreshTokenResult>("post", "/refresh-token", { data });
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`refreshTokenApi` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<RefreshTokenResult>("auth_refresh_token", {
+    payload: data ?? {}
+  });
 };
