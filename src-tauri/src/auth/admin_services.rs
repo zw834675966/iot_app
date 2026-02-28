@@ -1,3 +1,9 @@
+//! # 管理员业务逻辑层 (Admin Services)
+//!
+//! 这里承载了管理员操作所有核心的业务规则校验和执行。
+//! 它不感知 Tauri 框架本身，且完全通过纯函数的形式编写（易于测试）。
+//! 依赖 `admin_repository` 进行底层数据的存取操作。
+
 use std::collections::HashSet;
 
 use crate::auth::models::{
@@ -16,6 +22,9 @@ const ROLE_MAINTAINER: &str = "maintainer";
 const TERM_PERMANENT: &str = "permanent";
 const TERM_DAYS: &str = "days";
 
+/// 根据管理员提供的参数在系统中新增一名用户。
+/// 首先进行角色规范化、然后计算有效期 `expire_at`、随机盐值与密码散列计算，
+/// 最后将结果落库。
 pub fn register_user_by_admin(
     payload: AdminRegisterUserPayload,
     now_millis: u64,
@@ -75,6 +84,11 @@ pub fn register_user_by_admin(
     })
 }
 
+/// 对指定用户的账户时效进行展期。
+///
+/// 失败情形：
+/// 1. 尝试给超级管理员（admin）设定过期时间（它是永久的）。
+/// 2. 传入的续期时长为负或不合法。
 pub fn renew_user_account_by_admin(
     payload: AdminRenewUserAccountPayload,
     now_millis: u64,
@@ -137,6 +151,7 @@ pub fn renew_user_account_by_admin(
     })
 }
 
+/// 返回所有用户的简略档案列表供前端渲染数据表格使用。
 pub fn list_users_by_admin(
     payload: AdminListUsersPayload,
     now_millis: u64,
@@ -154,6 +169,8 @@ pub fn list_users_by_admin(
     Ok(records.into_iter().map(map_managed_user_record).collect())
 }
 
+/// 提供管理员级别的用户信息变更。
+/// 将会对需要分配给该用户的新增角色执行差集运算并更新到路由关联表。
 pub fn update_user_by_admin(
     payload: AdminUpdateUserPayload,
     now_millis: u64,
@@ -205,6 +222,7 @@ pub fn update_user_by_admin(
     Ok(map_managed_user_record(record))
 }
 
+/// 物理删除某个用户，同时会自动级联清理角色表及路由表的绑定关系。
 pub fn delete_user_by_admin(
     payload: AdminDeleteUserPayload,
     now_millis: u64,
@@ -229,6 +247,8 @@ pub fn delete_user_by_admin(
     Ok(true)
 }
 
+/// 重新生成安全的随机盐（Salt）并重设所选用户的密码。
+/// 该操作一旦成功，会导致被修改用户原有的登录令牌全部失效。
 pub fn change_user_password_by_admin(
     payload: AdminChangeUserPasswordPayload,
     now_millis: u64,

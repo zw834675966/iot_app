@@ -1,3 +1,4 @@
+#![allow(clippy::must_use_candidate, clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::doc_markdown, clippy::needless_pass_by_value)]
 pub mod auth;
 pub mod core;
 pub mod db;

@@ -1,3 +1,9 @@
+//! # 管理员命令模块 (Admin Commands)
+//!
+//! 本模块负责接收前端发起的管理员特定 IPC 命令（Tauri Commands）。
+//! 主要是针对用户生命周期的增删改查（CRUD）操作、密码重置及账号续期功能。
+//! 该层作为 Adapter 适配器层，负责数据的解析、验证并转交业务逻辑（`admin_services`）处理。
+
 use crate::auth::admin_services;
 use crate::auth::models::{
     AdminChangeUserPasswordData, AdminChangeUserPasswordPayload, AdminDeleteUserPayload,
@@ -10,6 +16,8 @@ use crate::auth::services::now_millis;
 use crate::core::error::{ApiResponse, AppError, AppResult};
 
 #[tauri::command]
+/// 管理员专属：注册新系统用户。
+/// 校验调用者的管理员权限，并确保必要的账户信息及租户有效期限完整。
 pub fn auth_admin_register_user(
     payload: AdminRegisterUserPayload,
 ) -> AppResult<AdminRegisteredUserData> {
@@ -18,6 +26,8 @@ pub fn auth_admin_register_user(
 }
 
 #[tauri::command]
+/// 管理员专属：延长用户账号的有效期限。
+/// 支持按固定天数或将其转为永久有效。
 pub fn auth_admin_renew_user_account(
     payload: AdminRenewUserAccountPayload,
 ) -> AppResult<AdminRenewUserAccountData> {
@@ -26,6 +36,8 @@ pub fn auth_admin_renew_user_account(
 }
 
 #[tauri::command]
+/// 管理员专属：列出系统中现有的所有被管理用户。
+/// 用于用户管理列表展示。
 pub fn auth_admin_list_users(
     payload: AdminListUsersPayload,
 ) -> AppResult<Vec<AdminManagedUserData>> {
@@ -34,18 +46,23 @@ pub fn auth_admin_list_users(
 }
 
 #[tauri::command]
+/// 管理员专属：更新指定用户的昵称、角色、手机号及状态信息。
+/// 必须遵循严格的校验规则（不能更改超级管理员的敏感字段）。
 pub fn auth_admin_update_user(payload: AdminUpdateUserPayload) -> AppResult<AdminManagedUserData> {
     let data = admin_services::update_user_by_admin(payload, now_millis())?;
     Ok(ApiResponse::ok(data))
 }
 
 #[tauri::command]
+/// 管理员专属：软删除或硬删除指定用户。
+/// 内置安全保险，防止核心 admin 账号被意外删除。
 pub fn auth_admin_delete_user(payload: AdminDeleteUserPayload) -> AppResult<bool> {
     let data = admin_services::delete_user_by_admin(payload, now_millis())?;
     Ok(ApiResponse::ok(data))
 }
 
 #[tauri::command]
+/// 管理员专属：强制重置或修改任意普通用户的登录密码。
 pub fn auth_admin_change_user_password(
     payload: AdminChangeUserPasswordPayload,
 ) -> AppResult<AdminChangeUserPasswordData> {
@@ -54,6 +71,7 @@ pub fn auth_admin_change_user_password(
 }
 
 #[tauri::command]
+/// 预留接口：获取指定用户的设备与区域管理边界配置。
 pub fn user_device_scope_get(
     _payload: UserDeviceScopeGetPayload,
 ) -> AppResult<UserDeviceScopeReservedData> {
@@ -72,6 +90,7 @@ pub fn user_device_scope_get(
 }
 
 #[tauri::command]
+/// 预留接口：更新指定用户的设备管理边界。
 pub fn user_device_scope_upsert(_payload: UserDeviceScopeUpsertPayload) -> AppResult<bool> {
     Err(AppError::Validation(
         admin_services::reserved_device_scope_message().to_string(),

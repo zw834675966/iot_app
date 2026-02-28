@@ -1,3 +1,8 @@
+//! # 管理员数据仓储 (Admin Repository)
+//!
+//! 此模块使用 `rusqlite` 与底层的 SQLite 数据库直连。
+//! 涉及多张表的级联更新和事务操作，如 `users`, `user_roles`, `user_routes`。
+
 use std::collections::HashSet;
 
 use rusqlite::{OptionalExtension, params};
@@ -102,7 +107,7 @@ pub fn create_user(input: NewUserInput) -> Result<RegisteredUserRecord, AppError
                 input.password,
                 input.nickname,
                 phone,
-                if input.account_is_permanent { 1 } else { 0 },
+                i32::from(input.account_is_permanent),
                 input.account_valid_days,
                 input.account_expire_at,
                 input.now_millis,
@@ -144,6 +149,7 @@ pub fn create_user(input: NewUserInput) -> Result<RegisteredUserRecord, AppError
     })
 }
 
+/// 执行 SQL 将某指定用户的 `account_expire_at` 进行延期并激活 `is_active=1`。
 pub fn renew_user_account(
     user_id: i64,
     account_is_permanent: bool,
@@ -166,7 +172,7 @@ pub fn renew_user_account(
             ",
             params![
                 user_id,
-                if account_is_permanent { 1 } else { 0 },
+                i32::from(account_is_permanent),
                 account_valid_days,
                 account_expire_at,
                 now_millis
@@ -359,8 +365,8 @@ pub fn update_user(input: UpdateUserInput) -> Result<ManagedUserRecord, AppError
                 input.username,
                 input.nickname,
                 phone,
-                if input.is_active { 1 } else { 0 },
-                if input.account_is_permanent { 1 } else { 0 },
+                i32::from(input.is_active),
+                i32::from(input.account_is_permanent),
                 input.account_valid_days,
                 input.account_expire_at,
                 input.now_millis

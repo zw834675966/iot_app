@@ -6,6 +6,7 @@ use crate::core::error::AppError;
 const DB_FILE_NAME: &str = "pure-admin-thin.sqlite3";
 static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 
+#[allow(clippy::unnecessary_wraps)]
 pub fn set_database_path(path: PathBuf) -> Result<(), AppError> {
     if DB_PATH.get().is_some() {
         return Ok(());
