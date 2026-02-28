@@ -1,6 +1,6 @@
 import type { iconType } from "./types";
 import { h, defineComponent, type Component } from "vue";
-import { FontIcon, IconifyIconOnline, IconifyIconOffline } from "../index";
+import { FontIcon, IconifyIconOffline } from "../index";
 
 /**
  * 支持 `iconfont`、自定义 `svg` 以及 `iconify` 中所有的图标
@@ -34,27 +34,14 @@ export function useRenderIcon(icon: any, attrs?: iconType): Component {
   } else if (typeof icon === "function" || typeof icon?.render === "function") {
     // svg
     return attrs ? h(icon, { ...attrs }) : icon;
-  } else if (typeof icon === "object") {
+  } else {
+    // 强制使用离线图标，不再通过是否存在 : 符号判断
     return defineComponent({
       name: "OfflineIcon",
       render() {
+        if (!icon) return;
         return h(IconifyIconOffline, {
           icon: icon,
-          ...attrs
-        });
-      }
-    });
-  } else {
-    // 通过是否存在 : 符号来判断是在线还是本地图标，存在即是在线图标，反之
-    return defineComponent({
-      name: "Icon",
-      render() {
-        if (!icon) return;
-        const IconifyIcon = icon.includes(":")
-          ? IconifyIconOnline
-          : IconifyIconOffline;
-        return h(IconifyIcon, {
-          icon,
           ...attrs
         });
       }

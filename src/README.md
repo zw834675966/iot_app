@@ -139,9 +139,7 @@ sequenceDiagram
 
 - **@tauri-apps/api** (`^2.10.1`): Tauri 前端绑定库，实现 JS 与 Rust 的互操作。
 - **@vueuse/core** (`^14.0.0`): 强大的 Vue 组合式 API 实用工具集。
-- **axios** (`^1.12.2`): 读取本地 `public/platform-config.json` 的轻量 HTTP 客户端。
 - **dayjs** (`^1.11.18`): 轻量级的时间/日期处理库。
-- **js-cookie**: 本地登录态与用户信息存储。
 
 ### PureAdmin 生态
 

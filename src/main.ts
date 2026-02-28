@@ -29,13 +29,8 @@ Object.keys(directives).forEach(key => {
 });
 
 // 全局注册@iconify/vue图标库
-import {
-  IconifyIconOffline,
-  IconifyIconOnline,
-  FontIcon
-} from "./components/ReIcon";
+import { IconifyIconOffline, FontIcon } from "./components/ReIcon";
 app.component("IconifyIconOffline", IconifyIconOffline);
-app.component("IconifyIconOnline", IconifyIconOnline);
 app.component("FontIcon", FontIcon);
 
 // 全局注册按钮级别权限组件

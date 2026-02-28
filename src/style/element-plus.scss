@@ -25,24 +25,6 @@
   padding: 0 !important;
 }
 
-/* nprogress 适配 element-plus 的主题色 */
-#nprogress {
-  & .bar {
-    background-color: var(--el-color-primary) !important;
-  }
-
-  & .peg {
-    box-shadow:
-      0 0 10px var(--el-color-primary),
-      0 0 5px var(--el-color-primary) !important;
-  }
-
-  & .spinner-icon {
-    border-top-color: var(--el-color-primary);
-    border-left-color: var(--el-color-primary);
-  }
-}
-
 .pure-dialog {
   .el-dialog__header.show-close {
     padding-right: 16px;

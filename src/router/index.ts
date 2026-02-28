@@ -1,6 +1,4 @@
-import Cookies from "js-cookie";
 import { getConfig } from "@/config";
-import NProgress from "@/utils/progress";
 import { buildHierarchyTree } from "@/utils/tree";
 import remainingRouter from "./modules/remaining";
 import { useMultiTagsStoreHook } from "@/store/modules/multiTags";
@@ -29,12 +27,7 @@ import {
   type RouteComponent,
   createRouter
 } from "vue-router";
-import {
-  type DataInfo,
-  userKey,
-  removeToken,
-  multipleTabsKey
-} from "@/utils/auth";
+import { type DataInfo, userKey, removeToken } from "@/utils/auth";
 
 /** 自动导入全部静态路由，无需再手动引入！匹配 src/router/modules 目录（任何嵌套级别）中具有 .ts 扩展名的所有文件，除了 remaining.ts 文件
  * 如何匹配所有文件请看：https://github.com/mrmlnc/fast-glob#basic-syntax
@@ -121,10 +114,6 @@ const { VITE_HIDE_HOME } = import.meta.env;
 router.beforeEach((to: ToRouteType, _from, next) => {
   to.meta.loaded = loadedPaths.has(to.path);
 
-  if (!to.meta.loaded) {
-    NProgress.start();
-  }
-
   if (to.meta?.keepAlive) {
     handleAliveRoute(to, "add");
     // 页面整体刷新和点击标签页刷新
@@ -146,7 +135,8 @@ router.beforeEach((to: ToRouteType, _from, next) => {
   function toCorrectRoute() {
     whiteList.includes(to.fullPath) ? next(_from.fullPath) : next();
   }
-  if (Cookies.get(multipleTabsKey) && userInfo) {
+  // 本地桌面端无多页签cookie限制，直接通过 localStorage 存在与否判断登录状态
+  if (userInfo) {
     // 无权限跳转403页面
     if (to.meta?.roles && !isOneOfArray(to.meta?.roles, userInfo?.roles)) {
       next({ path: "/error/403" });
@@ -159,7 +149,6 @@ router.beforeEach((to: ToRouteType, _from, next) => {
       // name为超链接
       if (externalLink) {
         openLink(to?.name as string);
-        NProgress.done();
       } else {
         toCorrectRoute();
       }
@@ -197,7 +186,7 @@ router.beforeEach((to: ToRouteType, _from, next) => {
               }
             }
           }
-          // 确保动态路由完全加入路由列表并且不影响静态路由（注意：动态路由刷新时router.beforeEach可能会触发两次，第一次触发动态路由还未完全添加，第二次动态路由才完全添加到路由列表，如果需要在router.beforeEach做一些判断可以在to.name存在的条件下去判断，这样就只会触发一次）
+          // 确保动态路由完全加入路由列表并且不影响静态路由
           if (isAllEmpty(to.name)) router.push(to.fullPath);
         });
       }
@@ -219,7 +208,6 @@ router.beforeEach((to: ToRouteType, _from, next) => {
 
 router.afterEach(to => {
   loadedPaths.add(to.path);
-  NProgress.done();
 });
 
 export default router;

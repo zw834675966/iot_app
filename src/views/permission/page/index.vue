@@ -23,6 +23,7 @@ const isAdmin = computed(() => userStore.roles.includes("admin"));
 const operatorUsername = computed(() => userStore.username);
 const loadingUsers = ref(false);
 const users = ref<AdminManagedUserData[]>([]);
+const managementCollapsePanels = ref<string[]>([]);
 
 const roleOptions = [
   { value: "operator", label: "操作员" },
@@ -376,98 +377,6 @@ onMounted(() => {
 
     <el-card v-if="isAdmin" shadow="never">
       <template #header>
-        <div class="font-bold">用户注册管理</div>
-      </template>
-      <el-form label-width="110px" class="max-w-[760px]">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="账号" required>
-              <el-input
-                v-model="registerForm.username"
-                placeholder="请输入账号"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="密码" required>
-              <el-input
-                v-model="registerForm.password"
-                type="password"
-                show-password
-                placeholder="请输入密码"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="名称" required>
-              <el-input
-                v-model="registerForm.nickname"
-                placeholder="请输入名称"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="电话">
-              <el-input v-model="registerForm.phone" placeholder="可选" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item label="角色" required>
-          <el-select
-            v-model="registerForm.roles"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            placeholder="请选择角色（可多选）"
-            class="w-full"
-          >
-            <el-option
-              v-for="item in roleOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="账号期限">
-              <el-radio-group v-model="registerForm.accountTermType">
-                <el-radio label="days">按天</el-radio>
-                <el-radio label="permanent">永久</el-radio>
-              </el-radio-group>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item
-              v-if="registerForm.accountTermType === 'days'"
-              label="期限天数"
-              required
-            >
-              <el-input-number
-                v-model="registerForm.accountValidDays"
-                :min="1"
-                :max="36500"
-                controls-position="right"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-form-item>
-          <el-button type="primary" @click="handleRegister">注册用户</el-button>
-          <el-button @click="loadUsers">刷新列表</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card v-if="isAdmin" shadow="never">
-      <template #header>
         <div class="font-bold">已注册用户信息</div>
       </template>
       <el-table v-loading="loadingUsers" :data="users" border>
@@ -544,102 +453,198 @@ onMounted(() => {
       </el-table>
     </el-card>
 
-    <el-card shadow="never">
-      <template #header>
-        <div class="font-bold">用户设备配置（预留）</div>
-      </template>
-      <el-form label-width="110px" class="max-w-[860px]">
-        <el-form-item label="用户 ID" required>
-          <el-input
-            v-model="deviceForm.userId"
-            placeholder="请输入用户ID"
-            class="w-[220px]"
-          />
-          <el-button class="ml-3" @click="handleLoadDeviceScope"
-            >加载预留配置</el-button
-          >
-        </el-form-item>
+    <el-collapse v-model="managementCollapsePanels">
+      <el-collapse-item v-if="isAdmin" name="user-register-management">
+        <template #title>
+          <div class="font-bold">用户注册管理</div>
+        </template>
+        <el-form label-width="110px" class="max-w-[760px]">
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="账号" required>
+                <el-input
+                  v-model="registerForm.username"
+                  placeholder="请输入账号"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="密码" required>
+                <el-input
+                  v-model="registerForm.password"
+                  type="password"
+                  show-password
+                  placeholder="请输入密码"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <el-form-item label="区域">
-          <el-checkbox
-            v-model="deviceForm.allAreas"
-            @change="value => applyAllSelect('areas', Boolean(value))"
-          >
-            全选
-          </el-checkbox>
-          <el-select
-            v-model="deviceForm.areas"
-            multiple
-            collapse-tags
-            class="ml-3 w-[460px]"
-            placeholder="请选择区域"
-          >
-            <el-option
-              v-for="area in areaOptions"
-              :key="area"
-              :label="area"
-              :value="area"
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="名称" required>
+                <el-input
+                  v-model="registerForm.nickname"
+                  placeholder="请输入名称"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="电话">
+                <el-input v-model="registerForm.phone" placeholder="可选" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-form-item label="角色" required>
+            <el-select
+              v-model="registerForm.roles"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择角色（可多选）"
+              class="w-full"
+            >
+              <el-option
+                v-for="item in roleOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="账号期限">
+                <el-radio-group v-model="registerForm.accountTermType">
+                  <el-radio label="days">按天</el-radio>
+                  <el-radio label="permanent">永久</el-radio>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item
+                v-if="registerForm.accountTermType === 'days'"
+                label="期限天数"
+                required
+              >
+                <el-input-number
+                  v-model="registerForm.accountValidDays"
+                  :min="1"
+                  :max="36500"
+                  controls-position="right"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-form-item>
+            <el-button type="primary" @click="handleRegister"
+              >注册用户</el-button
+            >
+            <el-button @click="loadUsers">刷新列表</el-button>
+          </el-form-item>
+        </el-form>
+      </el-collapse-item>
+
+      <el-collapse-item name="user-device-reserved">
+        <template #title>
+          <div class="font-bold">用户设备配置（预留）</div>
+        </template>
+        <el-form label-width="110px" class="max-w-[860px]">
+          <el-form-item label="用户 ID" required>
+            <el-input
+              v-model="deviceForm.userId"
+              placeholder="请输入用户ID"
+              class="w-[220px]"
             />
-          </el-select>
-        </el-form-item>
+            <el-button class="ml-3" @click="handleLoadDeviceScope"
+              >加载预留配置</el-button
+            >
+          </el-form-item>
 
-        <el-form-item label="楼层">
-          <el-checkbox
-            v-model="deviceForm.allFloors"
-            @change="value => applyAllSelect('floors', Boolean(value))"
-          >
-            全选
-          </el-checkbox>
-          <el-select
-            v-model="deviceForm.floors"
-            multiple
-            collapse-tags
-            class="ml-3 w-[460px]"
-            placeholder="请选择楼层"
-          >
-            <el-option
-              v-for="floor in floorOptions"
-              :key="floor"
-              :label="floor"
-              :value="floor"
-            />
-          </el-select>
-        </el-form-item>
+          <el-form-item label="区域">
+            <el-checkbox
+              v-model="deviceForm.allAreas"
+              @change="value => applyAllSelect('areas', Boolean(value))"
+            >
+              全选
+            </el-checkbox>
+            <el-select
+              v-model="deviceForm.areas"
+              multiple
+              collapse-tags
+              class="ml-3 w-[460px]"
+              placeholder="请选择区域"
+            >
+              <el-option
+                v-for="area in areaOptions"
+                :key="area"
+                :label="area"
+                :value="area"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-form-item label="设备">
-          <el-checkbox
-            v-model="deviceForm.allDevices"
-            @change="value => applyAllSelect('devices', Boolean(value))"
-          >
-            全选
-          </el-checkbox>
-          <el-select
-            v-model="deviceForm.devices"
-            multiple
-            collapse-tags
-            class="ml-3 w-[460px]"
-            placeholder="请选择设备"
-          >
-            <el-option
-              v-for="device in deviceOptions"
-              :key="device"
-              :label="device"
-              :value="device"
-            />
-          </el-select>
-        </el-form-item>
+          <el-form-item label="楼层">
+            <el-checkbox
+              v-model="deviceForm.allFloors"
+              @change="value => applyAllSelect('floors', Boolean(value))"
+            >
+              全选
+            </el-checkbox>
+            <el-select
+              v-model="deviceForm.floors"
+              multiple
+              collapse-tags
+              class="ml-3 w-[460px]"
+              placeholder="请选择楼层"
+            >
+              <el-option
+                v-for="floor in floorOptions"
+                :key="floor"
+                :label="floor"
+                :value="floor"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-form-item>
-          <el-button
-            type="primary"
-            :disabled="!isAdmin"
-            @click="handleSaveDeviceScope"
-          >
-            保存配置（预留）
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+          <el-form-item label="设备">
+            <el-checkbox
+              v-model="deviceForm.allDevices"
+              @change="value => applyAllSelect('devices', Boolean(value))"
+            >
+              全选
+            </el-checkbox>
+            <el-select
+              v-model="deviceForm.devices"
+              multiple
+              collapse-tags
+              class="ml-3 w-[460px]"
+              placeholder="请选择设备"
+            >
+              <el-option
+                v-for="device in deviceOptions"
+                :key="device"
+                :label="device"
+                :value="device"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item>
+            <el-button
+              type="primary"
+              :disabled="!isAdmin"
+              @click="handleSaveDeviceScope"
+            >
+              保存配置（预留）
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-collapse-item>
+    </el-collapse>
 
     <el-dialog v-model="editDialogVisible" title="编辑用户" width="680px">
       <el-form label-width="110px">
