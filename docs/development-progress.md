@@ -929,3 +929,77 @@ Use this file as a required append-only task log after each completed task.
   - Added this task entry to `docs/development-progress.md`
 - Next step:
   - Split and commit by feature groups (DB migration, backend CRUD APIs, frontend page/API).
+
+## 2026-02-28 14:44 - Reorder permission page sections and collapse management blocks
+- Scope:
+  - Moved `已注册用户信息` section to the first position on `用户注册管理` page.
+  - Converted `用户注册管理` and `用户设备配置（预留）` from always-expanded cards to collapsible sections.
+  - Kept existing admin permission behavior and handlers unchanged.
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-1437-permission-page-collapse-order.md`
+- Changed files:
+  - `src/views/permission/page/index.vue`
+  - `plan/2026-02-28-1437-permission-page-collapse-order.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `pnpm typecheck`
+  - result: failed due pre-existing baseline issues (`src/components/ReIcon/index.ts` missing `./src/iconifyIconOnline`, `src/router/index.ts` missing `@/utils/progress`).
+  - command: `pnpm exec eslint src/views/permission/page/index.vue`
+  - result: passed.
+- Documentation updated:
+  - Added this task entry to `docs/development-progress.md`.
+- Next step:
+  - Repair baseline missing modules, then rerun global `pnpm typecheck`.
+
+## 2026-02-28 15:06 - Fix missing `@/utils/progress` module resolution in lay-tag
+- Scope:
+  - Investigated Vite import-analysis failure in `src/layout/components/lay-tag/index.vue`.
+  - Restored `@/utils/progress` module path with a local compatibility implementation that does not depend on `nprogress`.
+  - Kept existing call sites unchanged (`NProgress.start()` / `NProgress.done()`).
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-1501-fix-progress-import.md`
+- Changed files:
+  - `src/utils/progress/index.ts`
+  - `plan/2026-02-28-1501-fix-progress-import.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `pnpm exec vite build`
+  - result: passed.
+  - command: `pnpm typecheck`
+  - result: passed.
+- Documentation updated:
+  - Added this task entry to `docs/development-progress.md`.
+  - Added synchronized timeline to `plan/2026-02-28-1501-fix-progress-import.md`.
+- Next step:
+  - Optional: if you want the visible top loading bar back, re-introduce `nprogress` dependency and replace the current no-op compatibility shim.
+
+## 2026-02-28 15:25 - Hide button-permission page from dynamic routes
+- Scope:
+  - Added one-time DB migration to remove the `/permission/button` route tree (including children) from dynamic route data.
+  - Wired the migration into startup DB initialization so existing local databases also hide this page.
+  - Added/updated DB tests to cover migration SQL load and route removal behavior.
+  - Tauri security boundary evaluation:
+    - Capabilities/permissions: unchanged.
+    - Command exposure: unchanged.
+    - Async/state safety: unchanged.
+    - CSP/updater/version sync: unchanged.
+  - SQLite Tools MCP note: `sqlite_tools` server handshake failed in this session, so SQL behavior validation used Rust DB tests fallback.
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-1517-hide-button-permission-page.md`
+- Changed files:
+  - `src-tauri/src/db/migrations/0006_hide_button_permission_route.sql`
+  - `src-tauri/src/db/migrations.rs`
+  - `src-tauri/src/db/bootstrap.rs`
+  - `src-tauri/src/db/tests.rs`
+  - `plan/2026-02-28-1517-hide-button-permission-page.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml hides_button_permission_routes -- --nocapture`
+  - result: failed first (RED, `left: 3 right: 0`), then passed after migration implementation.
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (`31 passed; 0 failed`; doctest passed).
+- Documentation updated:
+  - Added this task entry to `docs/development-progress.md`.
+  - Added synchronized timeline to `plan/2026-02-28-1517-hide-button-permission-page.md`.
+- Next step:
+  - Restart app (`pnpm tauri:dev`) so local DB runs migration 0006 and menu updates immediately.

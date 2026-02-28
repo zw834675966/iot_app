@@ -16,6 +16,7 @@ pub(crate) fn init_database() -> Result<(), AppError> {
     migrations::apply_one_time_data_fix(&connection)?;
     migrations::apply_user_registration_extension(&connection)?;
     migrations::apply_permission_route_rename(&connection)?;
+    migrations::apply_hide_button_permission_route(&connection)?;
 
     Ok(())
 }
