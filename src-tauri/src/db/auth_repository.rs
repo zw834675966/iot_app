@@ -1,7 +1,7 @@
-﻿use std::collections::HashMap;
+use std::collections::HashMap;
 
-use rusqlite::OptionalExtension;
 use serde_json::{Map, Value};
+use sqlx::{Row, query};
 
 use crate::auth::models::UserProfile;
 use crate::core::error::AppError;
@@ -36,47 +36,69 @@ struct RouteNode {
 }
 
 pub fn find_user_profile(username: &str, password: &str) -> Result<Option<UserProfile>, AppError> {
-    let connection = db::connect()?;
+    db::block_on(async {
+        let mut connection = db::connect_async().await?;
 
-    let row = connection
-        .query_row(
+        // Keep sqlx here: profile join + aggregated permissions is a complex read query.
+        let row = query(
             r"
             SELECT
               u.avatar,
               u.username,
               u.nickname,
-              COALESCE(GROUP_CONCAT(DISTINCT ur.role), '') AS roles,
-              COALESCE(GROUP_CONCAT(DISTINCT p.code), '') AS permissions
+              COALESCE(STRING_AGG(DISTINCT ur.role, ','), '') AS roles,
+              COALESCE(STRING_AGG(DISTINCT p.code, ','), '') AS permissions
             FROM users u
             LEFT JOIN user_roles ur ON ur.user_id = u.id
             LEFT JOIN user_permissions up ON up.user_id = u.id
             LEFT JOIN permissions p ON p.id = up.permission_id
-            WHERE u.username = ?1 AND u.password = ?2 AND u.is_active = 1
+            WHERE u.username = $1 AND u.password = $2 AND u.is_active = 1
             GROUP BY u.id, u.avatar, u.username, u.nickname
             LIMIT 1
             ",
-            [username, password],
-            |row| {
-                Ok(UserProfile {
-                    avatar: row.get(0)?,
-                    username: row.get(1)?,
-                    nickname: row.get(2)?,
-                    roles: split_csv(&row.get::<_, String>(3)?),
-                    permissions: split_csv(&row.get::<_, String>(4)?),
-                })
-            },
         )
-        .optional()
+        .bind(username)
+        .bind(password)
+        .fetch_optional(&mut connection)
+        .await
         .map_err(|err| AppError::Database(err.to_string()))?;
 
-    Ok(row)
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let avatar: String = row
+            .try_get(0)
+            .map_err(|err| AppError::Database(err.to_string()))?;
+        let username: String = row
+            .try_get(1)
+            .map_err(|err| AppError::Database(err.to_string()))?;
+        let nickname: String = row
+            .try_get(2)
+            .map_err(|err| AppError::Database(err.to_string()))?;
+        let roles: String = row
+            .try_get(3)
+            .map_err(|err| AppError::Database(err.to_string()))?;
+        let permissions: String = row
+            .try_get(4)
+            .map_err(|err| AppError::Database(err.to_string()))?;
+
+        Ok(Some(UserProfile {
+            avatar,
+            username,
+            nickname,
+            roles: split_csv(&roles),
+            permissions: split_csv(&permissions),
+        }))
+    })
 }
 
 pub fn find_async_routes() -> Result<Vec<Value>, AppError> {
-    let connection = db::connect()?;
+    db::block_on(async {
+        let mut connection = db::connect_async().await?;
 
-    let mut statement = connection
-        .prepare(
+        // Keep sqlx here: route tree assembly depends on aggregate-heavy result shape.
+        let rows = query(
             r"
             SELECT
               r.id,
@@ -87,8 +109,8 @@ pub fn find_async_routes() -> Result<Vec<Value>, AppError> {
               r.meta_title,
               r.meta_icon,
               r.meta_rank,
-              COALESCE(GROUP_CONCAT(DISTINCT rr.role), '') AS roles,
-              COALESCE(GROUP_CONCAT(DISTINCT ra.auth), '') AS auths
+              COALESCE(STRING_AGG(DISTINCT rr.role, ','), '') AS roles,
+              COALESCE(STRING_AGG(DISTINCT ra.auth, ','), '') AS auths
             FROM routes r
             LEFT JOIN route_roles rr ON rr.route_id = r.id
             LEFT JOIN route_auths ra ON ra.route_id = r.id
@@ -104,46 +126,76 @@ pub fn find_async_routes() -> Result<Vec<Value>, AppError> {
             ORDER BY COALESCE(r.parent_id, 0), COALESCE(r.meta_rank, 0), r.id
             ",
         )
+        .fetch_all(&mut connection)
+        .await
         .map_err(|err| AppError::Database(err.to_string()))?;
 
-    let rows = statement
-        .query_map([], |row| {
-            Ok(RouteRow {
-                id: row.get(0)?,
-                parent_id: row.get(1)?,
-                path: row.get(2)?,
-                name: row.get(3)?,
-                component: row.get(4)?,
-                meta_title: row.get(5)?,
-                meta_icon: row.get(6)?,
-                meta_rank: row.get(7)?,
-                roles: split_csv(&row.get::<_, String>(8)?),
-                auths: split_csv(&row.get::<_, String>(9)?),
-            })
-        })
-        .map_err(|err| AppError::Database(err.to_string()))?;
+        let mut route_rows = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: i64 = row
+                .try_get(0)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let parent_id: Option<i64> = row
+                .try_get(1)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let path: String = row
+                .try_get(2)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let name: Option<String> = row
+                .try_get(3)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let component: Option<String> = row
+                .try_get(4)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let meta_title: String = row
+                .try_get(5)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let meta_icon: Option<String> = row
+                .try_get(6)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let meta_rank: Option<i32> = row
+                .try_get(7)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let roles: String = row
+                .try_get(8)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let auths: String = row
+                .try_get(9)
+                .map_err(|err| AppError::Database(err.to_string()))?;
 
-    let route_rows: Result<Vec<_>, _> = rows.collect();
-    let route_rows = route_rows.map_err(|err| AppError::Database(err.to_string()))?;
+            route_rows.push(RouteRow {
+                id,
+                parent_id,
+                path,
+                name,
+                component,
+                meta_title,
+                meta_icon,
+                meta_rank: meta_rank.map(i64::from),
+                roles: split_csv(&roles),
+                auths: split_csv(&auths),
+            });
+        }
 
-    let mut grouped: HashMap<Option<i64>, Vec<RouteNode>> = HashMap::new();
-    for row in route_rows {
-        grouped.entry(row.parent_id).or_default().push(RouteNode {
-            id: row.id,
-            path: row.path,
-            name: row.name,
-            component: row.component,
-            meta_title: row.meta_title,
-            meta_icon: row.meta_icon,
-            meta_rank: row.meta_rank,
-            roles: row.roles,
-            auths: row.auths,
-            children: Vec::new(),
-        });
-    }
+        let mut grouped: HashMap<Option<i64>, Vec<RouteNode>> = HashMap::new();
+        for row in route_rows {
+            grouped.entry(row.parent_id).or_default().push(RouteNode {
+                id: row.id,
+                path: row.path,
+                name: row.name,
+                component: row.component,
+                meta_title: row.meta_title,
+                meta_icon: row.meta_icon,
+                meta_rank: row.meta_rank,
+                roles: row.roles,
+                auths: row.auths,
+                children: Vec::new(),
+            });
+        }
 
-    let tree = assemble_route_tree(None, &mut grouped);
-    Ok(tree.into_iter().map(route_to_json).collect())
+        let tree = assemble_route_tree(None, &mut grouped);
+        Ok(tree.into_iter().map(route_to_json).collect())
+    })
 }
 
 fn split_csv(raw: &str) -> Vec<String> {
@@ -224,9 +276,7 @@ mod tests {
     fn ensure_db_ready() {
         static INIT: Once = Once::new();
         INIT.call_once(|| {
-            let test_db = std::env::temp_dir().join("pure-admin-thin-auth-tests.sqlite3");
-            let _ = std::fs::remove_file(&test_db);
-            db::set_database_path(test_db).expect("configure database path");
+            db::set_database_url(db::test_database_url()).expect("configure database url");
             db::init_database().expect("init db");
         });
     }

@@ -1,171 +1,153 @@
-use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use sqlx::{Row, query, query_scalar};
 
 use crate::core::error::AppError;
+use crate::db;
 use crate::notice::models::NoticeItem;
 
-const DB_FILE_NAME: &str = "pure-admin-thin-notice.redb";
-const NEXT_ID_KEY: &str = "next_id";
-const NOTICE_ITEMS_TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("notice_items");
-const NOTICE_META_TABLE: TableDefinition<&str, u64> = TableDefinition::new("notice_meta");
-
-static NOTICE_DB_PATH: OnceLock<PathBuf> = OnceLock::new();
-
-pub fn set_notice_database_path(path: PathBuf) -> Result<(), AppError> {
-    if NOTICE_DB_PATH.get().is_some() {
-        return Ok(());
-    }
-
-    if NOTICE_DB_PATH.set(path).is_err() {
-        return Ok(());
-    }
-
-    Ok(())
-}
-
 pub fn init_notice_database() -> Result<(), AppError> {
-    let path = database_path();
-    init_notice_database_at(&path)
+    db::block_on(async {
+        let mut connection = db::connect_async().await?;
+
+        query(
+            r"
+            CREATE TABLE IF NOT EXISTS notice_items (
+              id BIGINT PRIMARY KEY,
+              item_type TEXT NOT NULL,
+              title TEXT NOT NULL,
+              description TEXT NOT NULL,
+              datetime TEXT NOT NULL,
+              status TEXT,
+              extra TEXT,
+              is_read BOOLEAN NOT NULL DEFAULT FALSE
+            )
+            ",
+        )
+        .execute(&mut connection)
+        .await
+        .map_err(|err| AppError::Database(err.to_string()))?;
+
+        seed_default_items_if_needed(&mut connection).await?;
+        Ok(())
+    })
 }
 
 pub fn list_unread_notice_items() -> Result<Vec<NoticeItem>, AppError> {
-    let path = database_path();
-    list_unread_notice_items_at(&path)
+    list_notice_items_by_read_state(false)
 }
 
 pub fn list_read_notice_items() -> Result<Vec<NoticeItem>, AppError> {
-    let path = database_path();
-    list_read_notice_items_at(&path)
+    list_notice_items_by_read_state(true)
 }
 
 pub fn mark_notice_item_read(id: u64) -> Result<bool, AppError> {
-    let path = database_path();
-    mark_notice_item_read_at(&path, id)
+    let id = i64::try_from(id)
+        .map_err(|_| AppError::Validation("notice id out of range".to_string()))?;
+
+    db::block_on(async move {
+        let mut connection = db::connect_async().await?;
+        let result = query(
+            r"
+            UPDATE notice_items
+            SET is_read = TRUE
+            WHERE id = $1
+              AND is_read = FALSE
+            ",
+        )
+        .bind(id)
+        .execute(&mut connection)
+        .await
+        .map_err(|err| AppError::Database(err.to_string()))?;
+
+        Ok(result.rows_affected() > 0)
+    })
 }
 
-fn init_notice_database_at(path: &Path) -> Result<(), AppError> {
-    let db = open_database(path)?;
-    ensure_tables(&db)?;
-    seed_default_items_if_needed(&db)?;
-    Ok(())
-}
+fn list_notice_items_by_read_state(is_read: bool) -> Result<Vec<NoticeItem>, AppError> {
+    db::block_on(async move {
+        let mut connection = db::connect_async().await?;
+        let rows = query(
+            r"
+            SELECT id, item_type, title, description, datetime, status, extra, is_read
+            FROM notice_items
+            WHERE is_read = $1
+            ORDER BY id ASC
+            ",
+        )
+        .bind(is_read)
+        .fetch_all(&mut connection)
+        .await
+        .map_err(|err| AppError::Database(err.to_string()))?;
 
-fn list_unread_notice_items_at(path: &Path) -> Result<Vec<NoticeItem>, AppError> {
-    list_notice_items_by_read_state(path, false)
-}
+        let mut items = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: i64 = row
+                .try_get(0)
+                .map_err(|err| AppError::Database(err.to_string()))?;
+            let id = u64::try_from(id)
+                .map_err(|_| AppError::Database("notice id is negative".to_string()))?;
 
-fn list_read_notice_items_at(path: &Path) -> Result<Vec<NoticeItem>, AppError> {
-    list_notice_items_by_read_state(path, true)
-}
-
-fn list_notice_items_by_read_state(
-    path: &Path,
-    is_read: bool,
-) -> Result<Vec<NoticeItem>, AppError> {
-    let db = open_database(path)?;
-    let read_txn = db.begin_read().map_err(redb_error)?;
-    let table = read_txn
-        .open_table(NOTICE_ITEMS_TABLE)
-        .map_err(redb_error)?;
-
-    let mut items = Vec::new();
-    for entry in table.iter().map_err(redb_error)? {
-        let (_, value) = entry.map_err(redb_error)?;
-        let item = decode_notice_item(value.value())?;
-        if item.is_read == is_read {
-            items.push(item);
+            items.push(NoticeItem {
+                id,
+                item_type: row
+                    .try_get(1)
+                    .map_err(|err| AppError::Database(err.to_string()))?,
+                title: row
+                    .try_get(2)
+                    .map_err(|err| AppError::Database(err.to_string()))?,
+                description: row
+                    .try_get(3)
+                    .map_err(|err| AppError::Database(err.to_string()))?,
+                datetime: row
+                    .try_get(4)
+                    .map_err(|err| AppError::Database(err.to_string()))?,
+                status: row
+                    .try_get(5)
+                    .map_err(|err| AppError::Database(err.to_string()))?,
+                extra: row
+                    .try_get(6)
+                    .map_err(|err| AppError::Database(err.to_string()))?,
+                is_read: row
+                    .try_get(7)
+                    .map_err(|err| AppError::Database(err.to_string()))?,
+            });
         }
-    }
 
-    items.sort_by_key(|item| item.id);
-    Ok(items)
+        Ok(items)
+    })
 }
 
-fn mark_notice_item_read_at(path: &Path, id: u64) -> Result<bool, AppError> {
-    let db = open_database(path)?;
-    let write_txn = db.begin_write().map_err(redb_error)?;
-    let mut table = write_txn
-        .open_table(NOTICE_ITEMS_TABLE)
-        .map_err(redb_error)?;
+async fn seed_default_items_if_needed(connection: &mut sqlx::PgConnection) -> Result<(), AppError> {
+    let count: i64 = query_scalar("SELECT COUNT(1) FROM notice_items")
+        .fetch_one(&mut *connection)
+        .await
+        .map_err(|err| AppError::Database(err.to_string()))?;
 
-    let encoded = if let Some(raw) = table.get(id).map_err(redb_error)? {
-        let mut item = decode_notice_item(raw.value())?;
-        drop(raw);
-        if item.is_read {
-            None
-        } else {
-            item.is_read = true;
-            Some(encode_notice_item(&item)?)
-        }
-    } else {
-        return Ok(false);
-    };
-
-    if let Some(value) = encoded {
-        table.insert(id, value.as_slice()).map_err(redb_error)?;
-    }
-
-    drop(table);
-    write_txn.commit().map_err(redb_error)?;
-    Ok(true)
-}
-
-fn open_database(path: &Path) -> Result<Database, AppError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| AppError::Database(format!("create notice db dir failed: {err}")))?;
-    }
-    Database::create(path).map_err(redb_error)
-}
-
-fn ensure_tables(db: &Database) -> Result<(), AppError> {
-    let write_txn = db.begin_write().map_err(redb_error)?;
-    {
-        write_txn
-            .open_table(NOTICE_ITEMS_TABLE)
-            .map_err(redb_error)?;
-        write_txn
-            .open_table(NOTICE_META_TABLE)
-            .map_err(redb_error)?;
-    }
-    write_txn.commit().map_err(redb_error)?;
-    Ok(())
-}
-
-fn seed_default_items_if_needed(db: &Database) -> Result<(), AppError> {
-    let read_txn = db.begin_read().map_err(redb_error)?;
-    let table = read_txn
-        .open_table(NOTICE_ITEMS_TABLE)
-        .map_err(redb_error)?;
-    let has_data = table.len().map_err(redb_error)? > 0;
-    drop(table);
-    drop(read_txn);
-    if has_data {
+    if count > 0 {
         return Ok(());
     }
 
     let seeds = default_notice_items();
-    let next_id = seeds.iter().map(|item| item.id).max().unwrap_or(0) + 1;
-
-    let write_txn = db.begin_write().map_err(redb_error)?;
-    {
-        let mut table = write_txn
-            .open_table(NOTICE_ITEMS_TABLE)
-            .map_err(redb_error)?;
-        for item in &seeds {
-            let encoded = encode_notice_item(item)?;
-            table
-                .insert(item.id, encoded.as_slice())
-                .map_err(redb_error)?;
-        }
-        let mut meta = write_txn
-            .open_table(NOTICE_META_TABLE)
-            .map_err(redb_error)?;
-        meta.insert(NEXT_ID_KEY, next_id).map_err(redb_error)?;
+    for item in &seeds {
+        query(
+            r"
+            INSERT INTO notice_items (id, item_type, title, description, datetime, status, extra, is_read)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (id) DO NOTHING
+            ",
+        )
+        .bind(i64::try_from(item.id).map_err(|_| AppError::Validation("notice id out of range".to_string()))?)
+        .bind(&item.item_type)
+        .bind(&item.title)
+        .bind(&item.description)
+        .bind(&item.datetime)
+        .bind(&item.status)
+        .bind(&item.extra)
+        .bind(item.is_read)
+        .execute(&mut *connection)
+        .await
+        .map_err(|err| AppError::Database(err.to_string()))?;
     }
-    write_txn.commit().map_err(redb_error)?;
+
     Ok(())
 }
 
@@ -224,49 +206,46 @@ fn default_notice_items() -> Vec<NoticeItem> {
     ]
 }
 
-fn encode_notice_item(item: &NoticeItem) -> Result<Vec<u8>, AppError> {
-    serde_json::to_vec(item)
-        .map_err(|err| AppError::Database(format!("encode notice item failed: {err}")))
-}
-
-fn decode_notice_item(bytes: &[u8]) -> Result<NoticeItem, AppError> {
-    serde_json::from_slice(bytes)
-        .map_err(|err| AppError::Database(format!("decode notice item failed: {err}")))
-}
-
-fn database_path() -> PathBuf {
-    if let Some(path) = NOTICE_DB_PATH.get() {
-        return path.clone();
-    }
-
-    std::env::current_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("db")
-        .join(DB_FILE_NAME)
-}
-
-fn redb_error<E: std::fmt::Display>(err: E) -> AppError {
-    AppError::Database(format!("notice redb error: {err}"))
-}
-
 #[cfg(test)]
 mod tests {
+    use std::sync::{Mutex, Once};
+
+    use sqlx::query;
+
     use super::*;
 
-    fn temp_db_path(name: &str) -> PathBuf {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system time")
-            .as_nanos();
-        std::env::temp_dir().join(format!("{name}-{nanos}.redb"))
+    fn ensure_db_ready() {
+        static INIT: Once = Once::new();
+        INIT.call_once(|| {
+            db::set_database_url(db::test_database_url()).expect("configure database url");
+            db::init_database().expect("init auth db");
+        });
+    }
+
+    fn test_guard() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: Mutex<()> = Mutex::new(());
+        LOCK.lock().expect("lock notice tests")
+    }
+
+    fn reset_notice_table() {
+        db::block_on(async {
+            let mut connection = db::connect_async().await.expect("connect db");
+            query("DROP TABLE IF EXISTS notice_items")
+                .execute(&mut connection)
+                .await
+                .expect("drop notice table");
+        });
     }
 
     #[test]
     fn initializes_and_seeds_unread_notice_items() {
-        let path = temp_db_path("notice-seed");
-        init_notice_database_at(&path).expect("init notice db");
+        let _guard = test_guard();
+        ensure_db_ready();
+        reset_notice_table();
 
-        let items = list_unread_notice_items_at(&path).expect("list unread notices");
+        init_notice_database().expect("init notice db");
+
+        let items = list_unread_notice_items().expect("list unread notices");
         assert!(items.iter().any(|item| item.item_type == "1"));
         assert!(items.iter().any(|item| item.item_type == "2"));
         assert!(items.iter().any(|item| item.item_type == "3"));
@@ -275,44 +254,53 @@ mod tests {
 
     #[test]
     fn mark_read_sets_is_read_and_hides_item() {
-        let path = temp_db_path("notice-mark-read");
-        init_notice_database_at(&path).expect("init notice db");
+        let _guard = test_guard();
+        ensure_db_ready();
+        reset_notice_table();
 
-        let first_id = list_unread_notice_items_at(&path)
+        init_notice_database().expect("init notice db");
+
+        let first_id = list_unread_notice_items()
             .expect("list unread notices")
             .first()
             .map(|item| item.id)
             .expect("at least one unread item");
 
-        let changed = mark_notice_item_read_at(&path, first_id).expect("mark read");
+        let changed = mark_notice_item_read(first_id).expect("mark read");
         assert!(changed);
 
-        let unread = list_unread_notice_items_at(&path).expect("list unread notices again");
+        let unread = list_unread_notice_items().expect("list unread notices again");
         assert!(unread.iter().all(|item| item.id != first_id));
     }
 
     #[test]
     fn mark_read_returns_false_for_missing_item() {
-        let path = temp_db_path("notice-missing");
-        init_notice_database_at(&path).expect("init notice db");
+        let _guard = test_guard();
+        ensure_db_ready();
+        reset_notice_table();
 
-        let changed = mark_notice_item_read_at(&path, u64::MAX).expect("mark missing");
+        init_notice_database().expect("init notice db");
+
+        let changed = mark_notice_item_read(999_999).expect("mark missing");
         assert!(!changed);
     }
 
     #[test]
     fn mark_read_item_appears_in_read_list() {
-        let path = temp_db_path("notice-read-list");
-        init_notice_database_at(&path).expect("init notice db");
+        let _guard = test_guard();
+        ensure_db_ready();
+        reset_notice_table();
 
-        let target_id = list_unread_notice_items_at(&path)
+        init_notice_database().expect("init notice db");
+
+        let target_id = list_unread_notice_items()
             .expect("list unread notices")
             .first()
             .map(|item| item.id)
             .expect("at least one unread item");
-        mark_notice_item_read_at(&path, target_id).expect("mark read");
+        mark_notice_item_read(target_id).expect("mark read");
 
-        let read_items = list_read_notice_items_at(&path).expect("list read notices");
+        let read_items = list_read_notice_items().expect("list read notices");
         assert!(read_items.iter().any(|item| item.id == target_id));
         assert!(read_items.iter().all(|item| item.is_read));
     }

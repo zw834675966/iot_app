@@ -1,22 +1,25 @@
-#![allow(clippy::must_use_candidate, clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::doc_markdown, clippy::needless_pass_by_value)]
+#![allow(
+    clippy::must_use_candidate,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::doc_markdown,
+    clippy::needless_pass_by_value
+)]
 pub mod auth;
 pub mod core;
 pub mod db;
 pub mod notice;
 
-use tauri::Manager;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let db_dir = app.path().app_data_dir().map_err(|err| {
-                std::io::Error::other(format!("resolve app data dir failed: {err}"))
-            })?;
-
-            let sqlite_path = db_dir.join("db").join("pure-admin-thin.sqlite3");
-            db::set_database_path(sqlite_path)
-                .map_err(|err| std::io::Error::other(format!("configure db path failed: {err}")))?;
+            let database_url = std::env::var("PURE_ADMIN_DATABASE_URL")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(db::database_url);
+            db::set_database_url(database_url)
+                .map_err(|err| std::io::Error::other(format!("configure db url failed: {err}")))?;
             db::init_database()
                 .map_err(|err| std::io::Error::other(format!("initialize db failed: {err}")))?;
             auth::admin_services::run_startup_expiration_compensation(auth::services::now_millis())
@@ -26,10 +29,6 @@ pub fn run() {
                     ))
                 })?;
 
-            let notice_db_path = db_dir.join("db").join("pure-admin-thin-notice.redb");
-            notice::set_notice_database_path(notice_db_path).map_err(|err| {
-                std::io::Error::other(format!("configure notice db path failed: {err}"))
-            })?;
             notice::init_notice_database().map_err(|err| {
                 std::io::Error::other(format!("initialize notice db failed: {err}"))
             })?;

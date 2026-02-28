@@ -35,3 +35,61 @@
 .html-weakness {
   filter: invert(80%);
 }
+
+/* 能源管理系统 特色视觉风格 */
+
+/* 磨砂玻璃容器支持 */
+.glass-panel {
+  background: rgba(var(--el-bg-color-rgb), 0.7) !important;
+  border: 1px solid rgb(255 255 255 / 10%) !important;
+  box-shadow: 0 4px 30px rgb(0 0 0 / 5%);
+  backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+html.dark .glass-panel {
+  background: rgb(15 23 42 / 70%) !important; /* Slate 900 */
+  border: 1px solid rgb(255 255 255 / 5%) !important;
+}
+
+/* 强调数据面板样式 */
+.data-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: var(--el-color-primary-light-5);
+    box-shadow: var(--el-box-shadow-light);
+    transform: translateY(-2px);
+  }
+
+  &::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    content: "";
+    background: var(--el-color-primary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &:hover::before {
+    opacity: 1;
+  }
+}
+
+/* 数字字体美化 */
+.font-mono-num {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}

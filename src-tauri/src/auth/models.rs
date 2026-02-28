@@ -1,11 +1,16 @@
 //! ==========================================================================================
-//! # 数据模型（DTO）模块
+//! 鉴权数据模型模块（DTO 层）
 //!
-//! ## 模块概述
-//! 本模块定义了前后端之间传输的所有数据结构（Data Transfer Object，DTO）。
-//! 采用"贫血模型"设计：结构体仅包含数据字段，不包含业务逻辑。
+//! 模块职责：
+//! 本模块定义了鉴权系统中前后端之间传输的所有数据结构（Data Transfer Object，DTO）。
+//! 采用贫血模型设计：结构体仅包含数据字段，不包含任何业务逻辑。
 //!
-//! ## 模型分类
+//! 设计原则：
+//! - 数据导向：只包含数据字段和序列化配置，不包含方法
+//! - 前后端兼容：使用 serde 属性确保前后端数据格式兼容
+//! - 类型安全：使用强类型定义所有数据结构
+//!
+//! 模型分类：
 //!
 //! | 分类 | 结构体 | 用途 | 方向 |
 //! |------|--------|------|------|
@@ -13,13 +18,26 @@
 //! | 内部模型 | `TokenPair` | 业务逻辑内部使用 | services → commands |
 //! | 响应体 | `LoginData` | 登录成功返回 | commands → 前端 |
 //! | 响应体 | `RefreshTokenData` | 令牌刷新返回 | commands → 前端 |
+//! | 响应体 | `AdminRegisteredUserData` | 管理员注册用户返回 | commands → 前端 |
+//! | 响应体 | `AdminRenewUserAccountData` | 管理员续期用户返回 | commands → 前端 |
+//! | 响应体 | `AdminManagedUserData` | 管理员用户列表项 | commands → 前端 |
+//! | 响应体 | `AdminChangeUserPasswordData` | 管理员修改密码返回 | commands → 前端 |
+//! | 响应体 | `UserDeviceScopeReservedData` | 设备范围预留 | commands → 前端 |
 //! | 请求体 | `LoginPayload` | 登录请求接收 | 前端 → commands |
 //! | 请求体 | `RefreshTokenPayload` | 令牌刷新请求接收 | 前端 → commands |
+//! | 请求体 | `AdminRegisterUserPayload` | 管理员注册用户请求 | 前端 → commands |
+//! | 请求体 | `AdminRenewUserAccountPayload` | 管理员续期用户请求 | 前端 → commands |
+//! | 请求体 | `AdminListUsersPayload` | 管理员列出用户请求 | 前端 → commands |
+//! | 请求体 | `AdminUpdateUserPayload` | 管理员更新用户请求 | 前端 → commands |
+//! | 请求体 | `AdminDeleteUserPayload` | 管理员删除用户请求 | 前端 → commands |
+//! | 请求体 | `AdminChangeUserPasswordPayload` | 管理员修改密码请求 | 前端 → commands |
+//! | 请求体 | `UserDeviceScopeGetPayload` | 获取设备范围请求 | 前端 → commands |
+//! | 请求体 | `UserDeviceScopeUpsertPayload` | 更新设备范围请求 | 前端 → commands |
 //!
-//! ## 序列化约定
+//! 序列化约定：
 //!
-//! ### 命名风格转换
-//! Rust 使用 `snake_case`（蛇形命名），而 JavaScript/TypeScript 使用 `camelCase`（驼峰命名）。
+//! 命名风格转换：
+//! Rust 使用 snake_case（蛇形命名），而 JavaScript/TypeScript 使用 camelCase（驼峰命名）。
 //! 为确保前后端数据交互顺畅，所有面向前端的结构体均使用以下 serde 属性：
 //!
 //! ```rust
@@ -34,73 +52,40 @@
 //! | `refresh_token` | `refreshToken` |
 //! | `user_id` | `userId` |
 //! | `is_active` | `isActive` |
+//! | `account_is_permanent` | `accountIsPermanent` |
+//! | `account_expire_at` | `accountExpireAt` |
 //!
-//! ### 请求体默认值
+//! 请求体默认值：
 //! 请求体结构使用 `#[serde(default)]` 和 `#[derive(Default)]`，
-//! 允许前端省略可选字段，缺失字段将被初始化为默认值（空字符串）。
+//! 允许前端省略可选字段，缺失字段将被初始化为默认值（空字符串或 None）。
 //! 命令层（commands.rs）负责进行必填字段的非空校验。
-//!
-//! ## 数据流示意
-//!
-//! ```text
-//! 前端 (JSON)
-//!    │
-//!    │ invoke("auth_login", { username: "admin", password: "123456" })
-//!    ▼
-//! LoginPayload (反序列化)
-//!    │
-//!    │ 验证通过后提取字段
-//!    ▼
-//! services::resolve_user_profile() ──► 数据库查询
-//!    │
-//!    ▼
-//! UserProfile (内部模型)
-//!    │
-//!    │ mint_token_pair() 生成令牌
-//!    ▼
-//! TokenPair + UserProfile ──► build_login_data()
-//!    │
-//!    ▼
-//! LoginData (序列化)
-//!    │
-//!    │ { success: true, data: { ... } }
-//!    ▼
-//! 前端接收
-//! ```
 //!
 //! ==========================================================================================
 
-use serde::{Deserialize, Serialize};
+// 引入 serde 库的序列化 trait
+use serde::Serialize;
+// 引入 serde 库的反序列化 trait
+use serde::Deserialize;
 
 // ==========================================================================================
 // 内部模型（业务逻辑层使用）
 // ==========================================================================================
 
-/// 用户档案信息（内部模型）
-///
-/// 表示从数据库查询到的用户完整信息，包含身份信息和权限信息。
-/// 此模型在业务逻辑层（services.rs）内部使用，不直接暴露给前端。
-///
-/// ## 数据来源
-/// 由 [`services::resolve_user_profile`](crate::auth::services::resolve_user_profile) 从数据库构建：
-/// - 用户基本信息：从 `users` 表查询
-/// - 角色列表：从 `user_roles` 表关联查询
-/// - 权限列表：从 `user_permissions` 表关联查询
-///
-/// ## 后续使用
-/// 此模型会被合并到 [`LoginData`] 中返回给前端，前端根据 roles 和 permissions
-/// 进行路由访问控制和按钮级权限控制。
-///
-/// ## 示例数据
-/// ```json
-/// {
-///   "avatar": "",
-///   "username": "admin",
-///   "nickname": "小铭",
-///   "roles": ["admin"],
-///   "permissions": ["*:*:*", "permission:btn:add", "permission:btn:edit", "permission:btn:delete"]
-/// }
-/// ```
+// 用户档案信息（内部模型）
+//
+// 说明：
+// 表示从数据库查询到的用户完整信息，包含身份信息和权限信息。
+// 此模型在业务逻辑层（services.rs）内部使用，不直接暴露给前端。
+//
+// 数据来源：
+// 由 [`services::resolve_user_profile`](crate::auth::services::resolve_user_profile) 从数据库构建：
+// - 用户基本信息：从 `users` 表查询
+// - 角色列表：从 `user_roles` 表关联查询
+// - 权限列表：从 `user_permissions` 表关联查询
+//
+// 后续使用：
+// 此模型会被合并到 [`LoginData`] 中返回给前端，前端根据 roles 和 permissions
+// 进行路由访问控制和按钮级权限控制。
 #[derive(Debug, Clone, Serialize)]
 pub struct UserProfile {
     /// 用户头像 URL
@@ -132,24 +117,25 @@ pub struct UserProfile {
 // 令牌模型（内部模型）
 // ==========================================================================================
 
-/// 令牌对（内部模型）
-///
-/// 包含 JWT 访问令牌和刷新令牌，以及令牌的过期时间。
-/// 此模型在业务逻辑层（services.rs）内部使用，不直接暴露给前端。
-///
-/// ## 生成方式
-/// 由 [`services::mint_token_pair`](crate::auth::services::mint_token_pair) 函数生成。
-///
-/// ## 令牌格式
-/// JWT 令牌由三部分组成：header.payload.signature
-/// - Header: {"alg": "HS256", "typ": "JWT"}
-/// - Payload: 包含 sub, token_type, iat, exp
-/// - Signature: 使用 HS256 算法和密钥签名
-///
-/// ## 有效期
-/// - `access_token`: 2 小时
-/// - `refresh_token`: 7 天
-/// - `expires`: 访问令牌的过期时间（Unix 毫秒时间戳）
+// 令牌对（内部模型）
+//
+// 说明：
+// 包含 JWT 访问令牌和刷新令牌，以及令牌的过期时间。
+// 此模型在业务逻辑层（services.rs）内部使用，不直接暴露给前端。
+//
+// 生成方式：
+// 由 [`services::mint_token_pair`](crate::auth::services::mint_token_pair) 函数生成。
+//
+// 令牌格式：
+// JWT 令牌由三部分组成：header.payload.signature
+// - Header: {"alg": "HS256", "typ": "JWT"}
+// - Payload: 包含 sub, token_type, iat, exp
+// - Signature: 使用 HS256 算法和密钥签名
+//
+// 有效期：
+// - `access_token`: 2 小时
+// - `refresh_token`: 7 天
+// - `expires`: 访问令牌的过期时间（Unix 毫秒时间戳）
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenPair {
@@ -173,34 +159,35 @@ pub struct TokenPair {
 // 响应体模型（向前端返回）
 // ==========================================================================================
 
-/// 登录成功响应体
-///
-/// 用户登录验证成功后，返回给前端的完整数据。
-/// 将用户档案与令牌对扁平合并为单一结构，前端登录成功后一次性获取全部所需数据。
-///
-/// ## 响应格式
-/// ```json
-/// {
-///   "success": true,
-///   "data": {
-///     "avatar": "",
-///     "username": "admin",
-///     "nickname": "小铭",
-///     "roles": ["admin"],
-///     "permissions": ["*:*:*"],
-///     "accessToken": "eyJ...",
-///     "refreshToken": "eyJ...",
-///     "expires": 1704069600000
-///   }
-/// }
-/// ```
-///
-/// ## 前端使用方式
-/// 1. 解析 `data` 字段获取用户信息
-/// 2. 保存 `accessToken` 到本地存储（用于后续请求认证）
-/// 3. 保存 `refreshToken` 到本地存储（用于令牌刷新）
-/// 4. 根据 `roles` 动态添加路由
-/// 5. 根据 `permissions` 控制按钮显示
+// 登录成功响应体
+//
+// 说明：
+// 用户登录验证成功后，返回给前端的完整数据。
+// 将用户档案与令牌对扁平合并为单一结构，前端登录成功后一次性获取全部所需数据。
+//
+// 响应格式：
+// ```json
+// {
+//   "success": true,
+//   "data": {
+//     "avatar": "",
+//     "username": "admin",
+//     "nickname": "小铭",
+//     "roles": ["admin"],
+//     "permissions": ["*:*:*"],
+//     "accessToken": "eyJ...",
+//     "refreshToken": "eyJ...",
+//     "expires": 1704069600000
+//   }
+// }
+// ```
+//
+// 前端使用方式：
+// 1. 解析 `data` 字段获取用户信息
+// 2. 保存 `accessToken` 到本地存储（用于后续请求认证）
+// 3. 保存 `refreshToken` 到本地存储（用于令牌刷新）
+// 4. 根据 `roles` 动态添加路由
+// 5. 根据 `permissions` 控制按钮显示
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginData {
@@ -236,26 +223,27 @@ pub struct LoginData {
     pub expires: u64,
 }
 
-/// 令牌刷新响应体
-///
-/// 仅包含新的令牌对信息，不重复返回用户档案数据。
-/// 因为用户已经登录，无需重复返回用户信息。
-///
-/// ## 响应格式
-/// ```json
-/// {
-///   "success": true,
-///   "data": {
-///     "accessToken": "eyJ...",
-///     "refreshToken": "eyJ...",
-///     "expires": 1704073200000
-///   }
-/// }
-/// ```
-///
-/// ## 前端使用方式
-/// 1. 用新的令牌更新本地存储
-/// 2. 继续使用新的 accessToken 进行 API 请求
+// 令牌刷新响应体
+//
+// 说明：
+// 仅包含新的令牌对信息，不重复返回用户档案数据。
+// 因为用户已经登录，无需重复返回用户信息。
+//
+// 响应格式：
+// ```json
+// {
+//   "success": true,
+//   "data": {
+//     "accessToken": "eyJ...",
+//     "refreshToken": "eyJ...",
+//     "expires": 1704073200000
+//   }
+// }
+// ```
+//
+// 前端使用方式：
+// 1. 用新的令牌更新本地存储
+// 2. 继续使用新的 accessToken 进行 API 请求
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshTokenData {
@@ -275,21 +263,15 @@ pub struct RefreshTokenData {
 // 请求体模型（从前端接收）
 // ==========================================================================================
 
-/// 登录请求体
-///
-/// 前端通过 `invoke("auth_login", { payload: { username, password } })` 传入。
-///
-/// ## 序列化说明
-/// - 使用 `#[serde(default)]` 允许缺省字段
-/// - 缺失字段会被初始化为空字符串
-/// - 命令层负责进行非空校验
-///
-/// ## 前端调用示例
-/// ```typescript
-/// const result = await invoke("auth_login", {
-///   payload: { username: "admin", password: "admin123" }
-/// });
-/// ```
+// 登录请求体
+//
+// 说明：
+// 前端通过 `invoke("auth_login", { payload: { username, password } })` 传入。
+//
+// 序列化说明：
+// - 使用 `#[serde(default)]` 允许缺省字段
+// - 缺失字段会被初始化为空字符串
+// - 命令层负责进行非空校验
 #[derive(Debug, Deserialize, Default)]
 #[serde(default)]
 pub struct LoginPayload {
@@ -303,21 +285,14 @@ pub struct LoginPayload {
     pub password: String,
 }
 
-/// 令牌刷新请求体
-///
-/// 前端通过 `invoke("auth_refresh_token", { payload: { refreshToken } })` 传入。
-///
-/// ## 序列化说明
-/// - 使用 `#[serde(rename_all = "camelCase")]` 自动将前端的 `refreshToken`
-///   转换为 Rust 的 `refresh_token`
-///
-/// ## 前端调用示例
-/// ```typescript
-/// const refreshToken = localStorage.getItem("refreshToken");
-/// const result = await invoke("auth_refresh_token", {
-///   payload: { refreshToken }
-/// });
-/// ```
+// 令牌刷新请求体
+//
+// 说明：
+// 前端通过 `invoke("auth_refresh_token", { payload: { refreshToken } })` 传入。
+//
+// 序列化说明：
+// - 使用 `#[serde(rename_all = "camelCase")]` 自动将前端的 `refreshToken`
+//   转换为 Rust 的 `refresh_token`
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct RefreshTokenPayload {
@@ -327,140 +302,230 @@ pub struct RefreshTokenPayload {
     pub refresh_token: String,
 }
 
+// ==========================================================================================
+// 管理员相关模型
+// ==========================================================================================
+
+// 管理员注册用户请求体
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AdminRegisterUserPayload {
+    /// 操作员用户名
     pub operator_username: String,
+    /// 新用户名
     pub username: String,
+    /// 密码
     pub password: String,
+    /// 昵称
     pub nickname: String,
+    /// 手机号（可选）
     pub phone: Option<String>,
+    /// 角色列表
     pub roles: Vec<String>,
+    /// 账号期限类型：permanent 或 days
     pub account_term_type: String,
+    /// 账号有效天数（当 account_term_type 为 days 时必填）
     pub account_valid_days: Option<i64>,
 }
 
+// 管理员注册用户响应体
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminRegisteredUserData {
+    /// 用户 ID
     pub user_id: i64,
+    /// 用户名
     pub username: String,
+    /// 角色列表
     pub roles: Vec<String>,
+    /// 是否激活
     pub is_active: bool,
+    /// 是否永久有效
     pub account_is_permanent: bool,
+    /// 过期时间戳（毫秒）
     pub account_expire_at: Option<i64>,
 }
 
+// 管理员续期用户账号请求体
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AdminRenewUserAccountPayload {
+    /// 操作员用户名
     pub operator_username: String,
+    /// 用户 ID
     pub user_id: i64,
+    /// 续期模式：permanent 或 days
     pub renew_mode: String,
+    /// 续期天数（当 renew_mode 为 days 时必填）
     pub renew_days: Option<i64>,
 }
 
+// 管理员续期用户账号响应体
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminRenewUserAccountData {
+    /// 用户 ID
     pub user_id: i64,
+    /// 是否永久有效
     pub account_is_permanent: bool,
+    /// 过期时间戳（毫秒）
     pub account_expire_at: Option<i64>,
+    /// 是否激活
     pub is_active: bool,
 }
 
+// 管理员列出用户请求体
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AdminListUsersPayload {
+    /// 操作员用户名
     pub operator_username: String,
 }
 
+// 管理员管理的用户数据
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminManagedUserData {
+    /// 用户 ID
     pub user_id: i64,
+    /// 用户名
     pub username: String,
+    /// 昵称
     pub nickname: String,
+    /// 手机号
     pub phone: Option<String>,
+    /// 角色列表
     pub roles: Vec<String>,
+    /// 是否激活
     pub is_active: bool,
+    /// 是否永久有效
     pub account_is_permanent: bool,
+    /// 有效天数
     pub account_valid_days: Option<i64>,
+    /// 过期时间戳（毫秒）
     pub account_expire_at: Option<i64>,
+    /// 创建时间戳（毫秒）
     pub created_at: Option<i64>,
+    /// 更新时间戳（毫秒）
     pub updated_at: Option<i64>,
+    /// 创建者
     pub created_by: Option<String>,
 }
 
+// 管理员更新用户请求体
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AdminUpdateUserPayload {
+    /// 操作员用户名
     pub operator_username: String,
+    /// 用户 ID
     pub user_id: i64,
+    /// 用户名
     pub username: String,
+    /// 昵称
     pub nickname: String,
+    /// 手机号（可选）
     pub phone: Option<String>,
+    /// 角色列表
     pub roles: Vec<String>,
+    /// 是否激活
     pub is_active: bool,
+    /// 账号期限类型
     pub account_term_type: String,
+    /// 账号有效天数
     pub account_valid_days: Option<i64>,
 }
 
+// 管理员删除用户请求体
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AdminDeleteUserPayload {
+    /// 操作员用户名
     pub operator_username: String,
+    /// 用户 ID
     pub user_id: i64,
 }
 
+// 管理员修改用户密码请求体
 #[derive(Debug, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct AdminChangeUserPasswordPayload {
+    /// 操作员用户名
     pub operator_username: String,
+    /// 用户 ID
     pub user_id: i64,
+    /// 新密码
     pub password: String,
 }
 
+// 管理员修改用户密码响应体
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminChangeUserPasswordData {
+    /// 用户 ID
     pub user_id: i64,
+    /// 用户名
     pub username: String,
 }
 
+// ==========================================================================================
+// 设备范围相关模型（预留接口）
+// ==========================================================================================
+
+// 获取用户设备范围请求体
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct UserDeviceScopeGetPayload {
+    /// 用户 ID
     pub user_id: i64,
 }
 
+// 更新用户设备范围请求体
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct UserDeviceScopeUpsertPayload {
+    /// 用户 ID
     pub user_id: i64,
+    /// 是否可访问所有区域
     pub all_areas: bool,
+    /// 是否可访问所有楼层
     pub all_floors: bool,
+    /// 是否可访问所有设备
     pub all_devices: bool,
+    /// 可访问的区域列表
     pub areas: Vec<String>,
+    /// 可访问的楼层列表
     pub floors: Vec<String>,
+    /// 可访问的设备列表
     pub devices: Vec<String>,
 }
 
+// 用户设备范围快照
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserDeviceScopeSnapshot {
+    /// 是否可访问所有区域
     pub all_areas: bool,
+    /// 是否可访问所有楼层
     pub all_floors: bool,
+    /// 是否可访问所有设备
     pub all_devices: bool,
+    /// 可访问的区域列表
     pub areas: Vec<String>,
+    /// 可访问的楼层列表
     pub floors: Vec<String>,
+    /// 可访问的设备列表
     pub devices: Vec<String>,
 }
 
+// 用户设备范围预留数据
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserDeviceScopeReservedData {
+    /// 是否已实现
     pub implemented: bool,
+    /// 消息
     pub message: String,
+    /// 设备范围快照
     pub scope: UserDeviceScopeSnapshot,
 }

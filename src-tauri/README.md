@@ -198,7 +198,7 @@ const result = await invoke("auth_get_async_routes");
 | ----------------------------------------------------- | ---- | ------------------- |
 | [Tauri](https://tauri.app/)                           | 2.10 | 桌面跨平台应用框架  |
 | [serde](https://serde.rs/)                            | 1.0  | 数据序列化反序列化  |
-| [rusqlite](https://docs.rs/rusqlite/)                 | 0.37 | 稳定的 SQLite 驱动  |
+| [sqlx](https://docs.rs/sqlx/)                         | 0.8  | SQLite 异步驱动与查询层 |
 | [thiserror](https://docs.rs/thiserror/)               | 2.0  | 统一领域错误派生宏  |
 | [tauri-plugin-log](https://docs.rs/tauri-plugin-log/) | 2    | 文件及终端日志输出  |
 | [jsonwebtoken](https://docs.rs/jsonwebtoken/)         | 10.3 | 鉴权 JWT 签名与解析 |

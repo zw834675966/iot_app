@@ -1003,3 +1003,242 @@ Use this file as a required append-only task log after each completed task.
   - Added synchronized timeline to `plan/2026-02-28-1517-hide-button-permission-page.md`.
 - Next step:
   - Restart app (`pnpm tauri:dev`) so local DB runs migration 0006 and menu updates immediately.
+
+## 2026-02-28 19:16 - Replace rusqlite with sqlx and migrate DB access layer
+- Scope:
+  - Replaced `src-tauri` SQLite dependency from `rusqlite` to `sqlx` (`launchbadge/sqlx`) and added explicit Tokio runtime support.
+  - Migrated DB core modules (`mod/bootstrap/migrations`) to `sqlx` execution path while preserving existing sync-facing APIs.
+  - Migrated `auth_repository` and `admin_repository` SQL execution/transactions from `rusqlite` calls to `sqlx::query`/`query_scalar`.
+  - Migrated DB tests from `rusqlite::Connection` to `sqlx::SqliteConnection` and kept previous behavior assertions.
+  - Tauri security boundary evaluation:
+    - Capabilities/permissions: unchanged.
+    - Command exposure: unchanged (no new command registration).
+    - Async/state safety: no shared-state expansion; DB runtime encapsulated in `db` module.
+    - CSP/updater/version sync: unchanged.
+  - SQLite Tools MCP note: attempted `list_mcp_resources(server="sqlite_tools")` and current session failed to initialize MCP; SQL behavior was verified via Rust tests fallback.
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-1902-rusqlite-to-sqlx.md`
+- Changed files:
+  - `README.md`
+  - `src-tauri/Cargo.toml`
+  - `src-tauri/Cargo.lock`
+  - `src-tauri/README.md`
+  - `src-tauri/src/db/mod.rs`
+  - `src-tauri/src/db/bootstrap.rs`
+  - `src-tauri/src/db/migrations.rs`
+  - `src-tauri/src/db/auth_repository.rs`
+  - `src-tauri/src/db/admin_repository.rs`
+  - `src-tauri/src/db/tests.rs`
+  - `plan/2026-02-28-1902-rusqlite-to-sqlx.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo check --manifest-path src-tauri/Cargo.toml`
+  - result: passed.
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (`31 passed; 0 failed`; doctest `1 passed`).
+  - command: `list_mcp_resources(server="sqlite_tools")`
+  - result: failed in this session (`MCP startup failed: handshaking ... connection closed`).
+- Documentation updated:
+  - Updated dependency wording from `rusqlite` to `sqlx` in root/backend README.
+  - Added this task entry to `docs/development-progress.md`.
+- Next step:
+  - Run `pnpm tauri:dev` for one manual startup smoke check against an existing local DB file.
+
+## 2026-02-28 19:39 - Upgrade Rust tauri-cli to latest stable 2.10.0
+- Scope:
+  - Verified latest stable `tauri-cli` version from official online source.
+  - Upgraded global Rust CLI from `2.9.4` to `2.10.0`.
+  - Re-validated local Tauri toolchain version reporting after upgrade.
+  - No project runtime/business code changes.
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-1933-upgrade-rust-tauri-cli.md`
+- Changed files:
+  - `plan/2026-02-28-1933-upgrade-rust-tauri-cli.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo install --list | rg "tauri-cli|cargo-tauri"`
+  - result: `tauri-cli v2.10.0`.
+  - command: `cargo tauri --version`
+  - result: `tauri-cli 2.10.0`.
+  - command: `pnpm tauri info`
+  - result: `tauri-cli 🦀: 2.10.0`.
+- Documentation updated:
+  - Added this task entry to `docs/development-progress.md`.
+- Next step:
+  - Optional: run `pnpm tauri:dev` for one full interactive smoke check.
+
+## 2026-02-28 19:02 - Fix redb begin_read missing trait import
+- Scope:
+  - Fixed a compilation error in `src/notice/repository.rs` where `begin_read` could not be found due to missing `ReadableDatabase` trait import.
+  - Fixed cascading type inference errors (`E0282`) for `redb::Table::iter()` and `value.value()` resolving automatically after the trait was correctly imported.
+  - Fixed a clippy warning `cast_possible_truncation` in `src/db/admin_repository.rs` by using `try_into().unwrap_or(usize::MAX)`.
+- Changed files:
+  - `src-tauri/src/notice/repository.rs`
+  - `src-tauri/src/db/admin_repository.rs`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (31 passed; 0 failed).
+  - command: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`
+  - result: passed (no warnings).
+- Documentation updated:
+  - Appended this task entry to `docs/development-progress.md`.
+- Next step:
+  - N/A
+
+## 2026-02-28 20:16 - Switch src-tauri database stack to PostgreSQL 17 + TimescaleDB 2.19
+- Scope:
+  - Replaced backend storage stack from `sqlite + redb` to PostgreSQL (`sqlx-postgres`) and unified notice storage into PostgreSQL table `notice_items`.
+  - Migrated DB connection/config model from local file path to database URL (`PURE_ADMIN_DATABASE_URL` + test URL fallback).
+  - Converted SQL migrations and repositories to PostgreSQL syntax (`$n` placeholders, `STRING_AGG`, `RETURNING`, `raw_sql` script execution).
+  - Added PostgreSQL advisory lock in DB bootstrap to prevent concurrent migration races during parallel tests.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged (no new Tauri commands introduced for this migration).
+    - runtime/state safety: DB init now serialized at DB level via advisory lock.
+    - CSP/updater/version sync: unchanged.
+  - SQLite Tools MCP note: server tooling remained unavailable in session; SQL behavior validated through full Rust test suite.
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-1947-postgres-timescaledb-migration.md`
+- Changed files:
+  - `src-tauri/Cargo.toml`
+  - `src-tauri/Cargo.lock`
+  - `src-tauri/src/db/mod.rs`
+  - `src-tauri/src/db/path_store.rs`
+  - `src-tauri/src/db/bootstrap.rs`
+  - `src-tauri/src/db/migrations.rs`
+  - `src-tauri/src/db/migrations/0001_schema.sql`
+  - `src-tauri/src/db/migrations/0002_seed.sql`
+  - `src-tauri/src/db/migrations/0003_legacy_offline_cleanup.sql`
+  - `src-tauri/src/db/migrations/0004_user_registration_extension.sql`
+  - `src-tauri/src/db/migrations/0005_permission_page_to_user_registration.sql`
+  - `src-tauri/src/db/migrations/0006_hide_button_permission_route.sql`
+  - `src-tauri/src/db/admin_repository.rs`
+  - `src-tauri/src/db/auth_repository.rs`
+  - `src-tauri/src/db/tests.rs`
+  - `src-tauri/src/notice/repository.rs`
+  - `src-tauri/src/notice/mod.rs`
+  - `src-tauri/src/lib.rs`
+  - `src-tauri/src/auth/commands.rs`
+  - `src-tauri/src/auth/admin_commands.rs`
+  - `docs/postgresql-timescaledb-runtime.md`
+  - `plan/2026-02-28-1947-postgres-timescaledb-migration.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (`31 passed; 0 failed`; doctest `1 passed`).
+- Documentation updated:
+  - Added `docs/postgresql-timescaledb-runtime.md`.
+  - Added this task entry to `docs/development-progress.md`.
+- Next step:
+  - Optional: move DB URL credentials to environment-only config for production packaging, and remove hardcoded fallback URL.
+
+## 2026-02-28 20:22 - Sync root README with PostgreSQL + TimescaleDB runtime
+- Scope:
+  - Updated root documentation to match the current backend storage architecture.
+  - Removed outdated SQLite/redb runtime-path guidance from root README and replaced it with PostgreSQL/TimescaleDB connection guidance.
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-2020-readme-postgres-sync.md`
+- Changed files:
+  - `README.md`
+  - `plan/2026-02-28-2020-readme-postgres-sync.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `rg -n "sqlite|SQLite|redb|pure-admin-thin\.sqlite3|pure-admin-thin-notice\.redb|PostgreSQL|TimescaleDB" README.md`
+  - result: passed; root README now describes PostgreSQL/TimescaleDB and no longer references sqlite/redb runtime file paths.
+- Documentation updated:
+  - Rewrote root `README.md` sections: stack, features, DB config, local bootstrap and validation commands.
+  - Added this entry to `docs/development-progress.md`.
+- Next step:
+  - Optional: synchronize `src-tauri/README.md` wording to remove any remaining SQLite/redb historical phrasing.
+
+## 2026-02-28 20:55 - DB hybrid optimization: SeaORM CRUD + sqlx complex query boundary
+- Scope:
+  - Introduced SeaORM into src-tauri for regular entity-based CRUD paths.
+  - Split oversized dmin_repository into focused modules:
+    - SeaORM CRUD module for standard user lifecycle operations.
+    - sqlx module retained for aggregate-heavy reporting/authorization checks.
+  - Added explicit SQL-boundary comments in auth repository for complex query paths.
+  - Added a new DB test to validate SeaORM connection/query flow.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged.
+    - async/state safety: unchanged command surface; DB access remains backend-only.
+    - CSP/updater/version sync: unchanged.
+- Related plan file in plan/:
+  - plan/2026-02-28-2046-db-seaorm-optimization.md
+- Changed files:
+  - src-tauri/Cargo.toml
+  - src-tauri/src/db/mod.rs
+  - src-tauri/src/db/tests.rs
+  - src-tauri/src/db/admin_repository.rs
+  - src-tauri/src/db/admin_repository/seaorm_users.rs
+  - src-tauri/src/db/admin_repository/sqlx_reports.rs
+  - src-tauri/src/db/entities/mod.rs
+  - src-tauri/src/db/entities/prelude.rs
+  - src-tauri/src/db/entities/users.rs
+  - src-tauri/src/db/entities/user_roles.rs
+  - src-tauri/src/db/auth_repository.rs
+  - plan/2026-02-28-2046-db-seaorm-optimization.md
+  - docs/development-progress.md
+- Verification:
+  - command: cargo test --manifest-path src-tauri/Cargo.toml opens_seaorm_connection_for_postgres -- --nocapture
+  - result: passed (1 passed; 0 failed).
+  - command: cargo test --manifest-path src-tauri/Cargo.toml
+  - result: blocked by unrelated worktree state (src-tauri/src/auth/commands.rs currently deleted), not by this DB refactor.
+- Documentation updated:
+  - Added this entry to docs/development-progress.md.
+- Next step:
+  - Resolve the worktree deletion state for src-tauri/src/auth/commands.rs, then rerun full test suite.
+
+## 2026-02-28 21:11 - Restore auth commands test wiring and complete full Rust verification
+- Scope:
+  - Restored src-tauri/src/auth/commands.rs into working tree and resolved compile mismatch to current DB API.
+  - Updated auth/admin test setup to use db::set_database_url(db::test_database_url()).
+  - Made admin registration test usernames unique per run to avoid PostgreSQL unique-key collisions on repeated test executions.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged.
+    - async/state safety: unchanged.
+    - CSP/updater/version sync: unchanged.
+- Related plan file in plan/:
+  - plan/2026-02-28-2046-db-seaorm-optimization.md
+- Changed files:
+  - src-tauri/src/auth/commands.rs
+  - src-tauri/src/auth/admin_commands.rs
+  - plan/2026-02-28-2046-db-seaorm-optimization.md
+  - docs/development-progress.md
+- Verification:
+  - command: cargo test --manifest-path src-tauri/Cargo.toml
+  - result: passed (32 passed; 0 failed; doctest 1 passed).
+- Documentation updated:
+  - Added this entry to docs/development-progress.md.
+- Next step:
+  - N/A
+
+## 2026-02-28 21:16 - Add database access routing constraints (SeaORM/sqlx + OLTP/Timeseries)
+- Scope:
+  - Added mandatory, project-level rules for choosing SeaORM vs sqlx/raw SQL.
+  - Added explicit write-routing constraints for PostgreSQL OLTP data vs TimescaleDB time-series data.
+  - Linked runtime notes to the new policy for discoverability.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged.
+    - async/state safety: unchanged.
+    - CSP/updater/version sync: unchanged.
+- Related plan file in plan/:
+  - plan/2026-02-28-2114-db-access-policy-constraints.md
+- Changed files:
+  - AGENTS.md
+  - docs/database-access-policy.md
+  - docs/postgresql-timescaledb-runtime.md
+  - plan/2026-02-28-2114-db-access-policy-constraints.md
+  - docs/development-progress.md
+- Verification:
+  - command: g -n "Database Access Routing Policy|database-access-policy|SeaORM|sqlx|TimescaleDB" AGENTS.md docs/database-access-policy.md docs/postgresql-timescaledb-runtime.md
+  - result: passed; all mandatory policy entries and cross-links are present.
+- Documentation updated:
+  - Added new policy doc docs/database-access-policy.md.
+  - Added mandatory policy section in AGENTS.md.
+  - Added runtime doc link to the policy.
+- Next step:
+  - Optional: add a lightweight CI grep/check script to fail PRs when new complex SQL lacks a boundary comment.

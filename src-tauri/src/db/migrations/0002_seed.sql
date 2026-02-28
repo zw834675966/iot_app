@@ -1,138 +1,51 @@
-﻿-- ==========================================================================================
--- 初始种子数据脚本
--- 文件: 0002_seed.sql
--- 用途: 为能源管理系统注入初始数据，包括用户、角色、权限、路由和设备注册信息
--- 执行时机: 在 0001_schema.sql 执行后立即执行（应用首次启动时）
--- 设计原则: 
---   - 使用 INSERT OR IGNORE 确保幂等性（重复执行不报错）
---   - 所有初始数据采用"离线安全"设计：无外部网络依赖
--- ==========================================================================================
+-- PostgreSQL 17 seed data
+INSERT INTO users (id, username, password, nickname, avatar, is_active) VALUES
+  (1, 'admin', 'admin123', '小铭', '', 1),
+  (2, 'common', 'admin123', '小林', '', 1)
+ON CONFLICT (id) DO NOTHING;
 
--- ==========================================================================================
--- 1. 初始化默认用户
--- 说明:
---   - admin: 超级管理员账户，拥有所有权限
---   - common: 普通用户账户，仅有基础权限
---   - 密码默认为 'admin123'（生产环境请及时修改）
---   - avatar 字段为空字符串，触发前端使用本地离线默认头像
--- ==========================================================================================
-INSERT OR IGNORE INTO users (id, username, password, nickname, avatar, is_active) VALUES
-  (1, 'admin',  'admin123', '小铭', '', 1),    -- 管理员账户：admin/123456
-  (2, 'common', 'admin123', '小林', '', 1);    -- 普通用户账户
+INSERT INTO user_roles (user_id, role) VALUES
+  (1, 'admin'),
+  (2, 'common')
+ON CONFLICT (user_id, role) DO NOTHING;
 
--- ==========================================================================================
--- 2. 初始化用户角色关联
--- 说明:
---   - admin 用户分配 'admin' 角色（管理员角色）
---   - common 用户分配 'common' 角色（普通用户角色）
---   - 角色标识符设计：admin=管理员，common=普通用户，可根据业务扩展
--- ==========================================================================================
-INSERT OR IGNORE INTO user_roles (user_id, role) VALUES
-  (1, 'admin'),    -- 用户ID 1 (admin) 分配管理员角色
-  (2, 'common');  -- 用户ID 2 (common) 分配普通用户角色
+INSERT INTO permissions (id, code) VALUES
+  (1, '*:*:*'),
+  (2, 'permission:btn:add'),
+  (3, 'permission:btn:edit'),
+  (4, 'permission:btn:delete')
+ON CONFLICT (id) DO NOTHING;
 
--- ==========================================================================================
--- 3. 初始化权限定义
--- 说明:
---   - 权限代码采用冒号分隔规范: 资源:操作:子操作
---   - '*:*:*' 表示超级管理员，拥有所有权限（最高权限）
---   - 'permission:btn:add' 表示按钮新增权限
---   - 'permission:btn:edit' 表示按钮编辑权限
---   - 'permission:btn:delete' 表示按钮删除权限
--- 权限层级说明:
---   - 第一位: 资源类型（如 permission、system、device 等）
---   - 第二位: 操作类型（如 btn、api、menu 等）
---   - 第三位: 具体动作（如 add、edit、delete、view 等）
--- ==========================================================================================
-INSERT OR IGNORE INTO permissions (id, code) VALUES
-  (1, '*:*:*'),                      -- 超级管理员：拥有所有权限
-  (2, 'permission:btn:add'),        -- 按钮级别：新增操作权限
-  (3, 'permission:btn:edit'),       -- 按钮级别：编辑操作权限
-  (4, 'permission:btn:delete');     -- 按钮级别：删除操作权限
+INSERT INTO user_permissions (user_id, permission_id) VALUES
+  (1, 1),
+  (2, 2),
+  (2, 3)
+ON CONFLICT (user_id, permission_id) DO NOTHING;
 
--- ==========================================================================================
--- 4. 初始化用户权限直接关联
--- 说明:
---   - admin 用户（id=1）直接关联 '*:*:*' 权限（超级管理员全部权限）
---   - common 用户（id=2）仅关联 btn:add 和 btn:edit 权限
---   - 不关联 delete 权限，体现了权限的精细化控制
--- 权限分配策略:
---   - 直接权限 > 角色权限（业务逻辑中处理）
---   - admin 拥有全部权限，common 只有部分按钮权限
--- ==========================================================================================
-INSERT OR IGNORE INTO user_permissions (user_id, permission_id) VALUES
-  (1, 1),    -- admin 用户拥有全部权限（permission_id=1 对应 '*:*:*'）
-  (2, 2),    -- common 用户拥有新增权限
-  (2, 3);   -- common 用户拥有编辑权限（无删除权限）
+INSERT INTO routes (id, parent_id, path, name, component, meta_title, meta_icon, meta_rank) VALUES
+  (1, NULL, '/permission', NULL, NULL, '权限管理', 'ri/information-line', 10),
+  (2, 1, '/permission/page/index', 'PermissionPage', NULL, '用户注册管理', NULL, NULL),
+  (3, 1, '/permission/button', NULL, NULL, '按钮权限', NULL, NULL),
+  (4, 3, '/permission/button/router', 'PermissionButtonRouter', 'permission/button/index', '路由返回按钮权限', NULL, NULL),
+  (5, 3, '/permission/button/login', 'PermissionButtonLogin', 'permission/button/perms', '登录接口返回按钮权限', NULL, NULL)
+ON CONFLICT (id) DO NOTHING;
 
--- ==========================================================================================
--- 5. 初始化动态路由配置
--- 说明:
---   - 构建权限管理模块的完整路由树结构
---   - parent_id 实现树形层级关系
---   - meta_icon 使用本地 Iconify 图标（ri/information-line），确保离线可用
---   - meta_rank 控制菜单排序，数值越小越靠前
--- 路由树结构:
---   - /permission (id=1, 顶级菜单)
---     ├── /permission/page/index (id=2, 用户注册管理子菜单)
---     └── /permission/button (id=3, 按钮权限子菜单)
---         ├── /permission/button/router (id=4, 路由返回按钮权限)
---         └── /permission/button/login (id=5, 登录接口返回按钮权限)
--- 字段说明:
---   - parent_id: NULL 表示顶级路由；数字表示父路由ID
---   - component: NULL 表示菜单（不直接渲染组件）；字符串表示组件路径
---   - meta_icon: 菜单图标，使用本地 Iconify 图标名
--- ==========================================================================================
-INSERT OR IGNORE INTO routes (id, parent_id, path, name, component, meta_title, meta_icon, meta_rank) VALUES
-  (1, NULL, '/permission', NULL, NULL, '权限管理', 'ri/information-line', 10),                                    -- 顶级菜单：权限管理
-  (2, 1, '/permission/page/index', 'PermissionPage', NULL, '用户注册管理', NULL, NULL),                        -- 子菜单：用户注册管理
-  (3, 1, '/permission/button', NULL, NULL, '按钮权限', NULL, NULL),                                             -- 子菜单：按钮权限
-  (4, 3, '/permission/button/router', 'PermissionButtonRouter', 'permission/button/index', '路由返回按钮权限', NULL, NULL),   -- 按钮权限子项：路由返回
-  (5, 3, '/permission/button/login', 'PermissionButtonLogin', 'permission/button/perms', '登录接口返回按钮权限', NULL, NULL);  -- 按钮权限子项：接口返回
+INSERT INTO route_roles (route_id, role) VALUES
+  (2, 'admin'),
+  (2, 'common'),
+  (3, 'admin'),
+  (3, 'common')
+ON CONFLICT (route_id, role) DO NOTHING;
 
--- ==========================================================================================
--- 6. 初始化路由角色访问控制
--- 说明:
---   - 控制哪些角色可以访问特定路由（菜单）
---   - 路由 ID 2（用户注册管理）和 3（按钮权限）对 admin 和 common 角色均可见
---   - 未分配角色的路由对所有用户可见（需配合前端权限指令）
--- 访问控制策略:
---   - route_roles 控制菜单级别的可见性
---   - route_auths 控制按钮/操作级别的权限
--- ==========================================================================================
-INSERT OR IGNORE INTO route_roles (route_id, role) VALUES
-  (2, 'admin'),    -- 用户注册管理路由：admin 角色可访问
-  (2, 'common'),  -- 用户注册管理路由：common 角色可访问
-  (3, 'admin'),   -- 按钮权限路由：admin 角色可访问
-  (3, 'common');  -- 按钮权限路由：common 角色可访问
+INSERT INTO route_auths (route_id, auth) VALUES
+  (4, 'permission:btn:add'),
+  (4, 'permission:btn:edit'),
+  (4, 'permission:btn:delete')
+ON CONFLICT (route_id, auth) DO NOTHING;
 
--- ==========================================================================================
--- 7. 初始化路由操作权限控制
--- 说明:
---   - 控制路由内具体操作的权限（如：按钮级别的增删改查）
---   - 路由 ID 4（路由返回按钮权限页面）关联了三个权限
---   - 前端通过 v-permission 指令实现按钮级别的权限控制
--- 使用场景示例:
---   - v-permission="['permission:btn:add']" 控制"新增"按钮显示
---   - v-permission="['permission:btn:edit']" 控制"编辑"按钮显示
---   - v-permission="['permission:btn:delete']" 控制"删除"按钮显示
--- ==========================================================================================
-INSERT OR IGNORE INTO route_auths (route_id, auth) VALUES
-  (4, 'permission:btn:add'),    -- 路由4：关联新增权限
-  (4, 'permission:btn:edit'),  -- 路由4：关联编辑权限
-  (4, 'permission:btn:delete');  -- 路由4：关联删除权限
+INSERT INTO device_registry (device_id, device_name, owner_username, registered_at) VALUES
+  ('device-localhost-001', 'Desktop Development Device', 'admin', 1772150000000)
+ON CONFLICT (device_id) DO NOTHING;
 
--- ==========================================================================================
--- 8. 初始化设备注册信息
--- 说明:
---   - 注册一个默认的开发设备，用于演示设备管理功能
---   - device_id: 设备唯一标识（格式：device-{环境}-{序号}）
---   - device_name: 设备显示名称
---   - owner_username: 设备所有者（关联 users 表的 username）
---   - registered_at: 注册时间（Unix 毫秒时间戳：1772150000000 ≈ 2025-11-01）
--- 扩展说明:
---   - 此设备作为示例，生产环境请根据实际设备信息替换
---   - 可通过设备管理模块添加更多设备
--- ==========================================================================================
-INSERT OR IGNORE INTO device_registry (device_id, device_name, owner_username, registered_at) VALUES
-  ('device-localhost-001', 'Desktop Development Device', 'admin', 1772150000000);  -- 开发设备：本地桌面开发设备
+SELECT setval('users_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM users), 1), true);
+SELECT setval('permissions_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM permissions), 1), true);

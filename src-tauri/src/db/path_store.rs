@@ -1,31 +1,34 @@
-﻿use std::path::PathBuf;
-use std::sync::OnceLock;
+﻿use std::sync::OnceLock;
 
 use crate::core::error::AppError;
 
-const DB_FILE_NAME: &str = "pure-admin-thin.sqlite3";
-static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
+const DEFAULT_DATABASE_URL: &str =
+    "postgres://postgres:EMSzw%4018627652962@127.0.0.1:5432/pure_admin_thin";
+static DB_URL: OnceLock<String> = OnceLock::new();
 
 #[allow(clippy::unnecessary_wraps)]
-pub fn set_database_path(path: PathBuf) -> Result<(), AppError> {
-    if DB_PATH.get().is_some() {
+pub fn set_database_url(url: String) -> Result<(), AppError> {
+    if DB_URL.get().is_some() {
         return Ok(());
     }
 
-    if DB_PATH.set(path).is_err() {
+    if DB_URL.set(url).is_err() {
         return Ok(());
     }
 
     Ok(())
 }
 
-pub(crate) fn database_path() -> PathBuf {
-    if let Some(path) = DB_PATH.get() {
-        return path.clone();
+pub(crate) fn database_url() -> String {
+    if let Some(url) = DB_URL.get() {
+        return url.clone();
     }
 
-    std::env::current_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("db")
-        .join(DB_FILE_NAME)
+    if let Ok(url) = std::env::var("PURE_ADMIN_DATABASE_URL") {
+        if !url.trim().is_empty() {
+            return url;
+        }
+    }
+
+    DEFAULT_DATABASE_URL.to_string()
 }

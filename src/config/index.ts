@@ -41,7 +41,7 @@ export const getPlatformConfig = async (app: App): Promise<undefined> => {
       setConfig($config);
     }
     return $config;
-  } catch (err) {
+  } catch {
     throw "请在public文件夹下添加platform-config.json配置文件";
   }
 };

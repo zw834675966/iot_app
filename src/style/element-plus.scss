@@ -169,3 +169,61 @@
     background: rgb(199 201 203); /* 滑块hover颜色 */
   }
 }
+
+/* 能源系统全局基础组件样式覆盖 */
+:root {
+  /* 更圆润友好的圆角设计 */
+  --el-border-radius-base: 8px !important;
+  --el-border-radius-small: 6px !important;
+  --el-border-radius-round: 20px !important;
+
+  /* 柔和的卡片投影 */
+  --el-box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 5%), 0 2px 4px -2px rgb(0 0 0 / 5%) !important;
+  --el-box-shadow-light: 0 2px 4px -1px rgb(0 0 0 / 5%) !important;
+  --el-box-shadow-lighter: 0 1px 2px 0 rgb(0 0 0 / 5%) !important;
+}
+
+/* Element Plus Button 样式优化 */
+.el-button {
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow: 0 4px 12px var(--el-color-primary-light-5);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* Card 样式优化 */
+.el-card {
+  border: 1px solid var(--el-border-color-light) !important;
+  border-radius: 12px !important;
+  transition: box-shadow 0.3s ease-in-out;
+
+  &:hover {
+    box-shadow: var(--el-box-shadow) !important;
+  }
+}
+
+/* Input/Select 优化 */
+.el-input__wrapper,
+.el-select-v2__wrapper,
+.el-textarea__inner {
+  box-shadow: 0 0 0 1px var(--el-border-color) inset !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+  &:hover {
+    box-shadow: 0 0 0 1px var(--el-border-color-hover) inset !important;
+  }
+
+  &.is-focus {
+    box-shadow:
+      0 0 0 1px var(--el-color-primary) inset,
+      0 0 0 2px var(--el-color-primary-light-8) !important;
+  }
+}

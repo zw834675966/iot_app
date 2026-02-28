@@ -24,6 +24,13 @@
 - Default to read-only validation and keep write operations minimal and explicit.
 - Use [`mcp.md`](mcp.md) as the SQLite Tools MCP setup and usage reference in this repository.
 
+## Database Access Routing Policy (Mandatory)
+- All backend DB work MUST follow [`docs/database-access-policy.md`](docs/database-access-policy.md).
+- Default to SeaORM for standard CRUD/entity lifecycle paths (target ~80%).
+- Use `sqlx`/raw SQL only for complex aggregation, DB-specific functions, or performance-critical query plans (target ~20%).
+- Write transactional business data to PostgreSQL OLTP tables; write high-frequency telemetry/event streams to TimescaleDB hypertables.
+- Every new complex SQL query MUST include a short boundary comment explaining why SeaORM is not used.
+
 ## Tauri Framework Constraints (Mandatory)
 - Any change touching `src-tauri/**`, `src/api/**` (Tauri IPC calls), or `src-tauri/tauri.conf.json` MUST follow [`docs/tauri-framework-constraints.md`](docs/tauri-framework-constraints.md).
 - Treat `docs/tauri-framework-constraints.md` as the authoritative Tauri v2 coding/security checklist for AI code decisions.

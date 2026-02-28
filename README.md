@@ -1,103 +1,96 @@
 # 能源管理系统 (Energy Management System)
 
-本项目是一个基于 **Vue 3 + TypeScript + Vite** 和 **Tauri v2 + Rust + SQLite** 构建的现代化桌面端能源管理控制台。
+本项目是一个基于 **Vue 3 + TypeScript + Vite** 与 **Tauri v2 + Rust + PostgreSQL** 构建的桌面端能源管理控制台。
 
-本项目由 `vue-pure-admin` 精简版演进而来，并针对“本地单程序运行”与“离线优先”的工业/物联网应用场景进行了深度重构。项目中原有的前端 HTTP 网络请求已被彻底剥离，取而代之的是更加安全、高效的 Tauri IPC 进程间通信。
+项目由 `vue-pure-admin` 精简演进而来，重点面向离线优先、内网部署和本地 IPC 通信场景。
 
 ## 核心技术栈
 
-- **前端框架**：Vue 3 (Composition API), Vite, TypeScript
-- **UI 与样式**：Element-Plus, Tailwind CSS, 纯本地离线图标
-- **状态与路由**：Pinia, Vue Router (支持前端动态路由注入)
-- **桌面端宿主**：Tauri v2 (Rust 编写核心逻辑)
-- **本地存储与鉴权**：SQLite (`rusqlite`), 离线 JWT 签发与验证 (jsonwebtoken)
+- 前端：Vue 3 (Composition API), Vite, TypeScript
+- UI：Element Plus, Tailwind CSS, 本地图标资源
+- 状态与路由：Pinia, Vue Router
+- 桌面宿主：Tauri v2（Rust）
+- 数据与鉴权：PostgreSQL 17.x + TimescaleDB，JWT (`jsonwebtoken`)
+- 数据访问层：`sqlx`（PostgreSQL 驱动）
 
 ## 主要特性
 
-- **桌面级本地运行**：无需外部 Web 服务器，直接打包为跨平台桌面应用程序（Windows / macOS / Linux）。
-- **IPC 安全架构**：全面移除传统 Axios/Fetch HTTP 请求机制。前端与后端的交互全部通过 `invoke` 本地命令完成，有效抵御针对 Web 端的网络攻击与数据窃听。
-- **本地嵌入式数据库**：内置 SQLite 数据库支持，用于存储用户凭证、设备注册表与系统配置。所有的表结构设计及基础数据初始化均由 Rust 端迁移脚本自动化管控。
-- **离线运行环境**：精简了原本高度依赖互联网的资源，所有头像、图标及核心静态依赖均已被本地化处理，以适应严格隔离的内网部署环境。
+- 本地桌面运行：支持 Windows / macOS / Linux 打包部署
+- IPC 架构：前后端通过 Tauri `invoke` 通信，移除传统 HTTP API 依赖
+- PostgreSQL 统一存储：用户、权限、路由、通知数据均由 PostgreSQL 管理
+- TimescaleDB 扩展：数据库启用时序扩展能力，便于后续时序数据演进
+- 离线优先：适配内网/隔离网络场景
 
-## 开发与构建指南
+## 开发与构建
 
 ### 环境要求
 
-- [Node.js](https://nodejs.org/) (推荐 `^20.19.0` 或 `>=22.13.0`)
-- [pnpm](https://pnpm.io/) (`>= 9.0.0`)
-- [Rust Toolchain](https://rustup.rs/) (edition 2021/2024)
+- Node.js `^20.19.0` 或 `>=22.13.0`
+- pnpm `>=9`
+- Rust toolchain（建议 `1.85+`）
+- PostgreSQL `17.x`
+- TimescaleDB（建议 `2.19+`，当前本机验证为 `2.25.0`）
 
 ### 常用命令
 
 ```bash
-# 1. 安装前端依赖
 pnpm install
-
-# 2. 启动前端 Vite 开发服务 (纯前端预览，无后端 IPC 支持)
 pnpm dev
-
-# 3. 启动 Tauri 桌面端本地开发环境 (完整功能)
 pnpm tauri:dev
-
-# 4. 运行前端代码格式化与类型检查
 pnpm lint
 pnpm typecheck
-
-# 5. 运行后端 Rust 单元测试
 cargo test --manifest-path src-tauri/Cargo.toml
-
-# 6. 构建并打包跨平台桌面安装包
 pnpm build
 pnpm tauri build
 ```
 
-## 本地数据库位置 (Tauri SQLite)
+## 数据库配置 (PostgreSQL + TimescaleDB)
 
-本项目在客户端启动时会自动初始化并完成 SQLite 数据库迁移。
+应用不再使用本地 sqlite/redb 文件；运行时改为 PostgreSQL 连接。
 
-- 运行时数据库文件名：`pure-admin-thin.sqlite3`
-- 启动后实际写入目录（按 Tauri `app_data_dir` + `db/` 子目录分配）：`<app_data_dir>/db/pure-admin-thin.sqlite3`
-- Windows 示例路径：`C:\Users\<用户名>\AppData\Roaming\com.pureadmin.thin\db\pure-admin-thin.sqlite3`
-- 开发环境默认兜底路径（未显式设置 DB_PATH 时）：`<项目当前工作目录>/db/pure-admin-thin.sqlite3`
+### 连接字符串来源
 
-### 快速自检（Windows / PowerShell）
+`src-tauri` 运行时读取顺序：
 
-可通过以下命令检查数据库文件是否在 Tauri 运行目录成功创建：
+1. 环境变量 `PURE_ADMIN_DATABASE_URL`
+2. 代码内默认值（当前实现存在默认本地连接，建议生产环境显式覆盖）
 
-```powershell
-Test-Path "$env:APPDATA\com.pureadmin.thin\db\pure-admin-thin.sqlite3"
-```
-如果返回 `True`，即表示运行正常。
+测试环境可使用：
 
-## 本地数据库位置 (通知中心 redb)
+- `PURE_ADMIN_TEST_DATABASE_URL`
 
-消息通知（通知/消息/待办）数据由 Tauri 侧 `redb` 存储，不在 `pure-admin-thin.sqlite3` 中。
-
-- 运行时数据库文件名：`pure-admin-thin-notice.redb`
-- 启动后实际写入目录（按 Tauri `app_data_dir` + `db/` 子目录分配）：`<app_data_dir>/db/pure-admin-thin-notice.redb`
-- Windows 示例路径：`C:\Users\<用户名>\AppData\Roaming\com.pureadmin.thin\db\pure-admin-thin-notice.redb`
-
-### 快速自检（Windows / PowerShell）
+### 推荐本地初始化
 
 ```powershell
-Test-Path "$env:APPDATA\com.pureadmin.thin\db\pure-admin-thin-notice.redb"
+$env:PGPASSWORD='你的postgres密码'
+psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE DATABASE pure_admin_thin"
+psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE DATABASE pure_admin_thin_test"
+psql -h 127.0.0.1 -U postgres -d pure_admin_thin -c "CREATE EXTENSION IF NOT EXISTS timescaledb"
+psql -h 127.0.0.1 -U postgres -d pure_admin_thin_test -c "CREATE EXTENSION IF NOT EXISTS timescaledb"
 ```
-如果返回 `True`，即表示通知中心数据库文件已创建。
 
-## 详细架构文档
+### 快速自检
 
-项目各模块的设计和改造详情，请参阅以下专门的架构说明：
-- [前端工程指南](./src/README.md)
-- [后端工程指南](./src-tauri/README.md)
-- [Tauri 框架约束规范](./docs/tauri-framework-constraints.md)
+```powershell
+psql --version
+psql -h 127.0.0.1 -U postgres -d postgres -tAc "SHOW server_version"
+psql -h 127.0.0.1 -U postgres -d pure_admin_thin -tAc "SELECT extversion FROM pg_extension WHERE extname='timescaledb'"
+```
 
-## 致谢与版权声明
+## 相关文档
 
-本项目前端基础架构与 UI 界面体系基于 [vue-pure-admin](https://github.com/pure-admin/vue-pure-admin) 提炼修改。
-- 原开源协议：MIT License
-- 原版权所有：Copyright (c) 2020-present, pure-admin
+- 前端说明：`src/README.md`
+- Rust/Tauri 说明：`src-tauri/README.md`
+- PostgreSQL 运行说明：`docs/postgresql-timescaledb-runtime.md`
+- Tauri 约束：`docs/tauri-framework-constraints.md`
+- 开发进度：`docs/development-progress.md`
+
+## 致谢
+
+前端基础结构与部分 UI 体系来自 [vue-pure-admin](https://github.com/pure-admin/vue-pure-admin)（MIT License）。
 
 ## AI Coding Rules For This Repo
+
 - Mandatory skill workflow: `skills/project-aicode-workflow/SKILL.md`
 - Global agent rules: `AGENTS.md`
 - Frontend scope rules: `src/AGENTS.md`

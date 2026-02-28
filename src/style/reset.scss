@@ -17,12 +17,14 @@ body {
   height: 100%;
   margin: 0;
   font-family:
-    "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB",
-    "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+    Inter, Roboto, "Helvetica Neue", Helvetica, "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
   line-height: inherit;
+  color: var(--el-text-color-primary);
+  background-color: var(--el-bg-color-page);
+  text-rendering: optimizelegibility;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizelegibility;
 }
 
 hr {
