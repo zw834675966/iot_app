@@ -34,6 +34,62 @@ export type RefreshTokenResult = {
   };
 };
 
+export type AdminRegisterUserPayload = {
+  operatorUsername: string;
+  username: string;
+  password: string;
+  nickname: string;
+  phone?: string;
+  roles: string[];
+  accountTermType: "permanent" | "days";
+  accountValidDays?: number;
+};
+
+export type AdminRegisterUserResult = {
+  success: boolean;
+  data: {
+    userId: number;
+    username: string;
+    roles: string[];
+    isActive: boolean;
+    accountIsPermanent: boolean;
+    accountExpireAt?: number;
+  };
+};
+
+export type AdminRenewUserPayload = {
+  operatorUsername: string;
+  userId: number;
+  renewMode: "permanent" | "days";
+  renewDays?: number;
+};
+
+export type AdminRenewUserResult = {
+  success: boolean;
+  data: {
+    userId: number;
+    accountIsPermanent: boolean;
+    accountExpireAt?: number;
+    isActive: boolean;
+  };
+};
+
+export type UserDeviceScopeGetResult = {
+  success: boolean;
+  data: {
+    implemented: boolean;
+    message: string;
+    scope: {
+      allAreas: boolean;
+      allFloors: boolean;
+      allDevices: boolean;
+      areas: string[];
+      floors: string[];
+      devices: string[];
+    };
+  };
+};
+
 /** 登录 */
 export const getLogin = (data?: object) => {
   if (!isTauri()) {
@@ -54,4 +110,54 @@ export const refreshTokenApi = (data?: object) => {
   return invoke<RefreshTokenResult>("auth_refresh_token", {
     payload: data ?? {}
   });
+};
+
+export const adminRegisterUser = (payload: AdminRegisterUserPayload) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`adminRegisterUser` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<AdminRegisterUserResult>("auth_admin_register_user", {
+    payload
+  });
+};
+
+export const adminRenewUserAccount = (payload: AdminRenewUserPayload) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`adminRenewUserAccount` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<AdminRenewUserResult>("auth_admin_renew_user_account", {
+    payload
+  });
+};
+
+export const getUserDeviceScope = (userId: number) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`getUserDeviceScope` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<UserDeviceScopeGetResult>("user_device_scope_get", {
+    payload: { userId }
+  });
+};
+
+export const upsertUserDeviceScope = (payload: {
+  userId: number;
+  allAreas: boolean;
+  allFloors: boolean;
+  allDevices: boolean;
+  areas: string[];
+  floors: string[];
+  devices: string[];
+}) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`upsertUserDeviceScope` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke("user_device_scope_upsert", { payload });
 };
