@@ -16,17 +16,8 @@ import Setting from "~icons/ri/settings-3-line";
 const menuRef = ref();
 const defaultActive = ref(null);
 
-const {
-  route,
-  device,
-  logout,
-  onPanel,
-  resolvePath,
-  username,
-  userAvatar,
-  getDivStyle,
-  avatarsStyle
-} = useNav();
+const { route, device, logout, onPanel, resolvePath, username, getDivStyle } =
+  useNav();
 
 function getDefaultActive(routePath) {
   const wholeMenus = usePermissionStoreHook().wholeMenus;
@@ -100,7 +91,6 @@ watch(
       <!-- 退出登录 -->
       <el-dropdown trigger="click">
         <span class="el-dropdown-link navbar-bg-hover select-none">
-          <img :src="userAvatar" :style="avatarsStyle" />
           <p v-if="username" class="dark:text-white">{{ username }}</p>
         </span>
         <template #dropdown>

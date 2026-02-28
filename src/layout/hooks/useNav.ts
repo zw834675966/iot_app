@@ -1,7 +1,6 @@
 import { storeToRefs } from "pinia";
 import { getConfig } from "@/config";
 import { emitter } from "@/utils/mitt";
-import Avatar from "@/assets/user.jpg";
 import { getTopMenu } from "@/router/utils";
 import { useFullscreen } from "@vueuse/core";
 import type { routeMetaType } from "../types";
@@ -38,21 +37,11 @@ export function useNav() {
   });
 
   /** 头像（如果头像为空则使用 src/assets/user.jpg ） */
-  const userAvatar = computed(() => {
-    return isAllEmpty(useUserStoreHook()?.avatar)
-      ? Avatar
-      : useUserStoreHook()?.avatar;
-  });
-
   /** 昵称（如果昵称为空则显示用户名） */
   const username = computed(() => {
     return isAllEmpty(useUserStoreHook()?.nickname)
       ? useUserStoreHook()?.username
       : useUserStoreHook()?.nickname;
-  });
-
-  const avatarsStyle = computed(() => {
-    return username.value ? { marginRight: "10px" } : "";
   });
 
   const isCollapse = computed(() => {
@@ -150,8 +139,6 @@ export function useNav() {
     isCollapse,
     pureApp,
     username,
-    userAvatar,
-    avatarsStyle,
     tooltipEffect
   };
 }

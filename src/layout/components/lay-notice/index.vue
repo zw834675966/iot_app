@@ -1,19 +1,82 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { noticesData } from "./data";
-import NoticeList from "./components/NoticeList.vue";
+import { computed, onMounted, ref } from "vue";
 import BellIcon from "~icons/ep/bell";
+import { message } from "@/utils/message";
+import {
+  getReadNotices,
+  getUnreadNotices,
+  markNoticeAsRead
+} from "@/api/notice";
+import { NOTICE_TABS, type TabItem } from "./data";
+import NoticeList from "./components/NoticeList.vue";
 
-const noticesNum = ref(0);
-const notices = ref(noticesData);
-const activeKey = ref(noticesData[0]?.key);
+const notices = ref<TabItem[]>(
+  NOTICE_TABS.map(item => ({
+    ...item,
+    list: []
+  }))
+);
+const activeKey = ref(NOTICE_TABS[0]?.key ?? "1");
 
-notices.value.map(v => (noticesNum.value += v.list.length));
+const unreadTabKeys = new Set(["1", "2", "3"]);
+
+const noticesNum = computed(() =>
+  notices.value.reduce((total, tab) => {
+    if (!unreadTabKeys.has(tab.key)) {
+      return total;
+    }
+    return total + tab.list.length;
+  }, 0)
+);
 
 const getLabel = computed(
-  () => item =>
+  () => (item: TabItem) =>
     item.name + (item.list.length > 0 ? `(${item.list.length})` : "")
 );
+
+async function loadNotices() {
+  try {
+    const [unreadResponse, readResponse] = await Promise.all([
+      getUnreadNotices(),
+      getReadNotices()
+    ]);
+
+    const unreadItems = unreadResponse.data ?? [];
+    const readItems = readResponse.data ?? [];
+
+    notices.value = NOTICE_TABS.map(tab => {
+      if (tab.key === "read") {
+        return {
+          ...tab,
+          list: readItems
+        };
+      }
+
+      return {
+        ...tab,
+        list: unreadItems.filter(item => item.type === tab.key)
+      };
+    });
+  } catch (error: any) {
+    message(error?.message ?? "加载通知失败", { type: "error" });
+  }
+}
+
+async function onRead(id: number) {
+  try {
+    const result = await markNoticeAsRead(id);
+    if (!result.data) {
+      return;
+    }
+    await loadNotices();
+  } catch (error: any) {
+    message(error?.message ?? "设置已读失败", { type: "error" });
+  }
+}
+
+onMounted(() => {
+  loadNotices();
+});
 </script>
 
 <template>
@@ -50,7 +113,12 @@ const getLabel = computed(
               <el-tab-pane :label="getLabel(item)" :name="`${item.key}`">
                 <el-scrollbar max-height="330px">
                   <div class="noticeList-container">
-                    <NoticeList :list="item.list" :emptyText="item.emptyText" />
+                    <NoticeList
+                      :list="item.list"
+                      :showReadButton="item.key !== 'read'"
+                      :emptyText="item.emptyText"
+                      @read="onRead"
+                    />
                   </div>
                 </el-scrollbar>
               </el-tab-pane>

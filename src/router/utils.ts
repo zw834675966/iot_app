@@ -29,6 +29,8 @@ const modulesRoutes = import.meta.glob("/src/views/**/*.{vue,tsx}");
 // 动态路由
 import { getAsyncRoutes } from "@/api/routes";
 
+const DEFAULT_PARENT_MENU_ICON = "ri/information-line";
+
 function handRank(routeInfo: any) {
   const { name, path, parentId, meta } = routeInfo;
   return isAllEmpty(parentId)
@@ -310,8 +312,17 @@ function addAsyncRoutes(arrRoutes: Array<RouteRecordRaw>) {
   if (!arrRoutes || !arrRoutes.length) return;
   const modulesRoutesKeys = Object.keys(modulesRoutes);
   arrRoutes.forEach((v: RouteRecordRaw) => {
+    if (!v.meta) v.meta = { title: String(v.name ?? v.path ?? "") };
     // 将backstage属性加入meta，标识此路由为后端返回路由
     v.meta.backstage = true;
+    // 目录型父级菜单在折叠态下必须有图标，否则视觉会不协调
+    if (
+      v?.children &&
+      v.children.length &&
+      (isAllEmpty(v.meta?.icon) || !v.meta?.icon)
+    ) {
+      v.meta.icon = DEFAULT_PARENT_MENU_ICON;
+    }
     // 父级的redirect属性取值：如果子级存在且父级的redirect属性不存在，默认取第一个子级的path；如果子级存在且父级的redirect属性存在，取存在的redirect属性，会覆盖默认值
     if (v?.children && v.children.length && !v.redirect)
       v.redirect = v.children[0].path;

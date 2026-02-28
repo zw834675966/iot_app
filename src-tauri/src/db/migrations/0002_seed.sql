@@ -74,7 +74,7 @@ INSERT OR IGNORE INTO user_permissions (user_id, permission_id) VALUES
 --   - meta_rank 控制菜单排序，数值越小越靠前
 -- 路由树结构:
 --   - /permission (id=1, 顶级菜单)
---     ├── /permission/page/index (id=2, 页面权限子菜单)
+--     ├── /permission/page/index (id=2, 用户注册管理子菜单)
 --     └── /permission/button (id=3, 按钮权限子菜单)
 --         ├── /permission/button/router (id=4, 路由返回按钮权限)
 --         └── /permission/button/login (id=5, 登录接口返回按钮权限)
@@ -85,7 +85,7 @@ INSERT OR IGNORE INTO user_permissions (user_id, permission_id) VALUES
 -- ==========================================================================================
 INSERT OR IGNORE INTO routes (id, parent_id, path, name, component, meta_title, meta_icon, meta_rank) VALUES
   (1, NULL, '/permission', NULL, NULL, '权限管理', 'ri/information-line', 10),                                    -- 顶级菜单：权限管理
-  (2, 1, '/permission/page/index', 'PermissionPage', NULL, '页面权限', NULL, NULL),                              -- 子菜单：页面权限
+  (2, 1, '/permission/page/index', 'PermissionPage', NULL, '用户注册管理', NULL, NULL),                        -- 子菜单：用户注册管理
   (3, 1, '/permission/button', NULL, NULL, '按钮权限', NULL, NULL),                                             -- 子菜单：按钮权限
   (4, 3, '/permission/button/router', 'PermissionButtonRouter', 'permission/button/index', '路由返回按钮权限', NULL, NULL),   -- 按钮权限子项：路由返回
   (5, 3, '/permission/button/login', 'PermissionButtonLogin', 'permission/button/perms', '登录接口返回按钮权限', NULL, NULL);  -- 按钮权限子项：接口返回
@@ -94,15 +94,15 @@ INSERT OR IGNORE INTO routes (id, parent_id, path, name, component, meta_title, 
 -- 6. 初始化路由角色访问控制
 -- 说明:
 --   - 控制哪些角色可以访问特定路由（菜单）
---   - 路由 ID 2（页面权限）和 3（按钮权限）对 admin 和 common 角色均可见
+--   - 路由 ID 2（用户注册管理）和 3（按钮权限）对 admin 和 common 角色均可见
 --   - 未分配角色的路由对所有用户可见（需配合前端权限指令）
 -- 访问控制策略:
 --   - route_roles 控制菜单级别的可见性
 --   - route_auths 控制按钮/操作级别的权限
 -- ==========================================================================================
 INSERT OR IGNORE INTO route_roles (route_id, role) VALUES
-  (2, 'admin'),    -- 页面权限路由：admin 角色可访问
-  (2, 'common'),  -- 页面权限路由：common 角色可访问
+  (2, 'admin'),    -- 用户注册管理路由：admin 角色可访问
+  (2, 'common'),  -- 用户注册管理路由：common 角色可访问
   (3, 'admin'),   -- 按钮权限路由：admin 角色可访问
   (3, 'common');  -- 按钮权限路由：common 角色可访问
 

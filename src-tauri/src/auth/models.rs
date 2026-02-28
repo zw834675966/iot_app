@@ -371,6 +371,65 @@ pub struct AdminRenewUserAccountData {
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
+pub struct AdminListUsersPayload {
+    pub operator_username: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminManagedUserData {
+    pub user_id: i64,
+    pub username: String,
+    pub nickname: String,
+    pub phone: Option<String>,
+    pub roles: Vec<String>,
+    pub is_active: bool,
+    pub account_is_permanent: bool,
+    pub account_valid_days: Option<i64>,
+    pub account_expire_at: Option<i64>,
+    pub created_at: Option<i64>,
+    pub updated_at: Option<i64>,
+    pub created_by: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AdminUpdateUserPayload {
+    pub operator_username: String,
+    pub user_id: i64,
+    pub username: String,
+    pub nickname: String,
+    pub phone: Option<String>,
+    pub roles: Vec<String>,
+    pub is_active: bool,
+    pub account_term_type: String,
+    pub account_valid_days: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AdminDeleteUserPayload {
+    pub operator_username: String,
+    pub user_id: i64,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AdminChangeUserPasswordPayload {
+    pub operator_username: String,
+    pub user_id: i64,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminChangeUserPasswordData {
+    pub user_id: i64,
+    pub username: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct UserDeviceScopeGetPayload {
     pub user_id: i64,
 }

@@ -1,6 +1,6 @@
 # 核心模块 (Core)
 
-本模块定义了 **pure-admin-thin** 跨越所有子业务领域的基础设施和共用结构。这里的代码与具体的业务逻辑无关（如用户、权限等），它们是支撑整个应用稳定运行的基石。
+本模块定义了 **能源管理系统 (Tauri 后端)** 跨越所有子业务领域的基础设施和共用结构。这里的代码与具体的业务逻辑无关（如用户、权限、设备），它们是支撑整个应用稳定运行的基石。
 
 ## 目录结构
 
@@ -40,7 +40,7 @@ impl Serialize for AppError {
     where
         S: Serializer,
     {
-        // 直接序列化 Display 的输出（"username is required"）
+        // 直接序列化 Display 的输出（如 "username is required" 或 "database error: xxx"）
         serializer.serialize_str(&self.to_string())
     }
 }
@@ -62,7 +62,7 @@ pub type AppResult<T> = Result<ApiResponse<T>, AppError>;
 
 ### 扩展新错误变体
 
-如果业务变得复杂，出现了不仅仅是 `Validation` 的错误：
+随着业务的复杂化，你可以很方便地扩展错误类型：
 
 1. 打开 `src/core/error.rs`
 2. 在 `AppError` 枚举下追加新的变体：
@@ -72,20 +72,20 @@ pub type AppResult<T> = Result<ApiResponse<T>, AppError>;
        #[error("{0}")]
        Validation(String),
 
-       // 新增的数据库操作失败变体
-       #[error("Database error: {0}")]
+       // 数据库操作失败变体（已内置）
+       #[error("database error: {0}")]
        Database(String),
 
-       // 新增的网络超时变体
-       #[error("Network timeout")]
-       Timeout,
+       // 新增的其他变体
+       #[error("IO error: {0}")]
+       Io(String),
    }
    ```
-3. 因为手动实现了 `Serialize`，前端在调用失败时会自动收到 `"Database error: table not found"` 或者 `"Network timeout"`。
+3. 因为手动实现了 `Serialize`，前端在调用失败时会自动收到 `"database error: table not found"` 或者相应的格式化文本。
 
 ### 未来可能的核心扩展（示例）
 
 如果项目变大，你可以在 `src/core/` 中新增以下模块：
-- `db.rs`: 数据库连接池（Sqlite/MySQL）初始化逻辑。
-- `config.rs`: 应用全局配置解析（`AppConfig`）逻辑。
-- `logger.rs`: 定制的日志记录器或者监控上报工具。
+- `config.rs`: 应用全局配置解析逻辑（结合 Tauri 的 `app_data_dir` 提取用户配置）。
+- `logger.rs`: 自定义的文件日志记录器模块（辅助排查生产问题）。
+- `hardware.rs`: 串口或外部硬件通讯的全局管理状态封装。

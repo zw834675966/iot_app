@@ -6,6 +6,7 @@
 - Follow Actionbook Rust skills practices from `https://github.com/actionbook/rust-skills`.
 - For bugfixes, apply `systematic-debugging`; for implementation, apply `test-driven-development`.
 - Before any Tauri code/config change, load and apply `../docs/tauri-framework-constraints.md`.
+- For any database-related task (schema/migration/seed/query), invoke SQLite Tools MCP (`sqlite_tools`) and use it to inspect/validate schema and SQL.
 
 ## Mandatory Tauri Thinking Checklist (Every Task)
 - Capability and permission impact: does this change require updates in `capabilities/*.json|toml` or `permissions/*.toml`?

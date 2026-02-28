@@ -53,7 +53,8 @@ export default {
           "each",
           "include",
           "mixin",
-          "use"
+          "use",
+          "reference"
         ]
       }
     ],

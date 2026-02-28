@@ -5,7 +5,24 @@
 - Always run the process skill `using-superpowers` first.
 - Rust work MUST use the installed Actionbook Rust skill set from `https://github.com/actionbook/rust-skills` and then pick the matching Rust skill (`rust-router` first, then topic skill).
 - TypeScript/Vue work MUST use skills before editing code (`brainstorming` before design changes, `test-driven-development` before feature or bugfix implementation, `frontend-design` for UI design tasks).
+- Any Vue-related task MUST auto-route to the installed `vuejs-ai/skills` set (router/pinia/options/testing/jsx/debug/composable) and use the best-match skill first.
+- If Vue scope is broad or unclear, default to `vue-best-practices`, then add specialized Vue skills as needed.
 - If any additional skill matches the task scope, it MUST be invoked (do not skip applicable skills).
+
+## Codex Skills Installation Baseline (Mandatory)
+- `vuejs-ai/skills` MUST stay installed via official command: `npx skills add vuejs-ai/skills --yes --global`.
+- `superpowers` MUST use native skill discovery from official install guide:
+  - clone/update repo at `%USERPROFILE%\\.codex\\superpowers`
+  - keep junction `%USERPROFILE%\\.agents\\skills\\superpowers` -> `%USERPROFILE%\\.codex\\superpowers\\skills`
+  - remove legacy bootstrap blocks from `%USERPROFILE%\\.codex\\AGENTS.md` (if present)
+- After installing/updating either skill source, restart Codex so discovery refreshes.
+- Follow [`docs/ai-skills-usage.md`](docs/ai-skills-usage.md) for routing table and maintenance commands.
+
+## Database MCP Policy (Mandatory)
+- Any task involving database schema, migration, seed data, SQL design, or query validation MUST use the configured SQLite Tools MCP server (`sqlite_tools`).
+- Prefer SQLite Tools MCP read/query and schema tools (`execute_read_query`, `execute_schema_query`, `describe_table`, `list_tables`) over ad-hoc/manual SQL assumptions.
+- Default to read-only validation and keep write operations minimal and explicit.
+- Use [`mcp.md`](mcp.md) as the SQLite Tools MCP setup and usage reference in this repository.
 
 ## Tauri Framework Constraints (Mandatory)
 - Any change touching `src-tauri/**`, `src/api/**` (Tauri IPC calls), or `src-tauri/tauri.conf.json` MUST follow [`docs/tauri-framework-constraints.md`](docs/tauri-framework-constraints.md).

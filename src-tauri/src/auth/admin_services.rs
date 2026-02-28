@@ -1,13 +1,15 @@
 use std::collections::HashSet;
 
 use crate::auth::models::{
-    AdminRegisterUserPayload, AdminRegisteredUserData, AdminRenewUserAccountData,
-    AdminRenewUserAccountPayload,
+    AdminChangeUserPasswordData, AdminChangeUserPasswordPayload, AdminDeleteUserPayload,
+    AdminListUsersPayload, AdminManagedUserData, AdminRegisterUserPayload, AdminRegisteredUserData,
+    AdminRenewUserAccountData, AdminRenewUserAccountPayload, AdminUpdateUserPayload,
 };
 use crate::core::error::AppError;
 use crate::db::admin_repository;
 
 const RESERVED_DEVICE_SCOPE_MESSAGE: &str = "RESERVED_API_NOT_IMPLEMENTED";
+const PROTECTED_ADMIN_USERNAME: &str = "admin";
 const ROLE_OPERATOR: &str = "operator";
 const ROLE_TENANT: &str = "tenant";
 const ROLE_MAINTAINER: &str = "maintainer";
@@ -91,32 +93,33 @@ pub fn renew_user_account_by_admin(
     if payload.user_id <= 0 {
         return Err(AppError::Validation("userId is required".to_string()));
     }
+    assert_target_user_editable(payload.user_id)?;
 
     let renew_mode = payload.renew_mode.trim().to_ascii_lowercase();
-    let (account_is_permanent, account_valid_days, account_expire_at) = if renew_mode == TERM_PERMANENT
-    {
-        (true, None, None)
-    } else if renew_mode == TERM_DAYS {
-        let renew_days = payload
-            .renew_days
-            .ok_or_else(|| AppError::Validation("renewDays is required".to_string()))?;
-        if renew_days <= 0 {
+    let (account_is_permanent, account_valid_days, account_expire_at) =
+        if renew_mode == TERM_PERMANENT {
+            (true, None, None)
+        } else if renew_mode == TERM_DAYS {
+            let renew_days = payload
+                .renew_days
+                .ok_or_else(|| AppError::Validation("renewDays is required".to_string()))?;
+            if renew_days <= 0 {
+                return Err(AppError::Validation(
+                    "renewDays must be greater than 0".to_string(),
+                ));
+            }
+            let millis = renew_days
+                .checked_mul(24 * 60 * 60 * 1000)
+                .ok_or_else(|| AppError::Validation("renewDays is too large".to_string()))?;
+            let expire_at = now_millis
+                .checked_add(millis)
+                .ok_or_else(|| AppError::Validation("renewDays is too large".to_string()))?;
+            (false, Some(renew_days), Some(expire_at))
+        } else {
             return Err(AppError::Validation(
-                "renewDays must be greater than 0".to_string(),
+                "renewMode must be 'permanent' or 'days'".to_string(),
             ));
-        }
-        let millis = renew_days
-            .checked_mul(24 * 60 * 60 * 1000)
-            .ok_or_else(|| AppError::Validation("renewDays is too large".to_string()))?;
-        let expire_at = now_millis
-            .checked_add(millis)
-            .ok_or_else(|| AppError::Validation("renewDays is too large".to_string()))?;
-        (false, Some(renew_days), Some(expire_at))
-    } else {
-        return Err(AppError::Validation(
-            "renewMode must be 'permanent' or 'days'".to_string(),
-        ));
-    };
+        };
 
     let result = admin_repository::renew_user_account(
         payload.user_id,
@@ -134,13 +137,133 @@ pub fn renew_user_account_by_admin(
     })
 }
 
+pub fn list_users_by_admin(
+    payload: AdminListUsersPayload,
+    now_millis: u64,
+) -> Result<Vec<AdminManagedUserData>, AppError> {
+    let now_millis = i64::try_from(now_millis)
+        .map_err(|_| AppError::Validation("invalid current timestamp".to_string()))?;
+    let operator_username = payload.operator_username.trim().to_string();
+    if operator_username.is_empty() {
+        return Err(AppError::Validation(
+            "operatorUsername is required".to_string(),
+        ));
+    }
+    assert_operator_is_admin(&operator_username, now_millis)?;
+    let records = admin_repository::list_users()?;
+    Ok(records.into_iter().map(map_managed_user_record).collect())
+}
+
+pub fn update_user_by_admin(
+    payload: AdminUpdateUserPayload,
+    now_millis: u64,
+) -> Result<AdminManagedUserData, AppError> {
+    let now_millis = i64::try_from(now_millis)
+        .map_err(|_| AppError::Validation("invalid current timestamp".to_string()))?;
+    let operator_username = payload.operator_username.trim().to_string();
+    if operator_username.is_empty() {
+        return Err(AppError::Validation(
+            "operatorUsername is required".to_string(),
+        ));
+    }
+    assert_operator_is_admin(&operator_username, now_millis)?;
+
+    if payload.user_id <= 0 {
+        return Err(AppError::Validation("userId is required".to_string()));
+    }
+    assert_target_user_editable(payload.user_id)?;
+
+    let username = payload.username.trim().to_string();
+    if username.is_empty() {
+        return Err(AppError::Validation("username is required".to_string()));
+    }
+    let nickname = payload.nickname.trim().to_string();
+    if nickname.is_empty() {
+        return Err(AppError::Validation("nickname is required".to_string()));
+    }
+
+    validate_phone(payload.phone.as_deref())?;
+    let roles = normalize_roles(payload.roles)?;
+    let (account_is_permanent, account_valid_days, account_expire_at) = build_account_term(
+        payload.account_term_type.as_str(),
+        payload.account_valid_days,
+        now_millis,
+    )?;
+
+    let record = admin_repository::update_user(admin_repository::UpdateUserInput {
+        user_id: payload.user_id,
+        username,
+        nickname,
+        phone: payload.phone,
+        roles,
+        is_active: payload.is_active,
+        account_is_permanent,
+        account_valid_days,
+        account_expire_at,
+        now_millis,
+    })?;
+    Ok(map_managed_user_record(record))
+}
+
+pub fn delete_user_by_admin(
+    payload: AdminDeleteUserPayload,
+    now_millis: u64,
+) -> Result<bool, AppError> {
+    let now_millis = i64::try_from(now_millis)
+        .map_err(|_| AppError::Validation("invalid current timestamp".to_string()))?;
+    let operator_username = payload.operator_username.trim().to_string();
+    if operator_username.is_empty() {
+        return Err(AppError::Validation(
+            "operatorUsername is required".to_string(),
+        ));
+    }
+    assert_operator_is_admin(&operator_username, now_millis)?;
+    if payload.user_id <= 0 {
+        return Err(AppError::Validation("userId is required".to_string()));
+    }
+    assert_target_user_editable(payload.user_id)?;
+    let deleted = admin_repository::delete_user(payload.user_id)?;
+    if !deleted {
+        return Err(AppError::Validation("user not found".to_string()));
+    }
+    Ok(true)
+}
+
+pub fn change_user_password_by_admin(
+    payload: AdminChangeUserPasswordPayload,
+    now_millis: u64,
+) -> Result<AdminChangeUserPasswordData, AppError> {
+    let now_millis = i64::try_from(now_millis)
+        .map_err(|_| AppError::Validation("invalid current timestamp".to_string()))?;
+    let operator_username = payload.operator_username.trim().to_string();
+    if operator_username.is_empty() {
+        return Err(AppError::Validation(
+            "operatorUsername is required".to_string(),
+        ));
+    }
+    assert_operator_is_admin(&operator_username, now_millis)?;
+    if payload.user_id <= 0 {
+        return Err(AppError::Validation("userId is required".to_string()));
+    }
+    let password = payload.password.trim().to_string();
+    if password.is_empty() {
+        return Err(AppError::Validation("password is required".to_string()));
+    }
+
+    let record = admin_repository::update_user_password(payload.user_id, &password, now_millis)?;
+    Ok(AdminChangeUserPasswordData {
+        user_id: record.user_id,
+        username: record.username,
+    })
+}
+
 pub fn ensure_user_available_with_message(
     username: &str,
     error_message: &str,
     now_millis: u64,
 ) -> Result<(), AppError> {
-    let now_millis = i64::try_from(now_millis)
-        .map_err(|_| AppError::Validation(error_message.to_string()))?;
+    let now_millis =
+        i64::try_from(now_millis).map_err(|_| AppError::Validation(error_message.to_string()))?;
     let status = admin_repository::find_user_login_state(username)?;
     let Some(status) = status else {
         return Err(AppError::Validation(error_message.to_string()));
@@ -257,4 +380,32 @@ fn validate_phone(phone: Option<&str>) -> Result<(), AppError> {
         return Err(AppError::Validation("invalid phone format".to_string()));
     }
     Ok(())
+}
+
+fn assert_target_user_editable(user_id: i64) -> Result<(), AppError> {
+    let username = admin_repository::find_username_by_user_id(user_id)?
+        .ok_or_else(|| AppError::Validation("user not found".to_string()))?;
+    if username.eq_ignore_ascii_case(PROTECTED_ADMIN_USERNAME) {
+        return Err(AppError::Validation(
+            "admin user only supports password change".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn map_managed_user_record(record: admin_repository::ManagedUserRecord) -> AdminManagedUserData {
+    AdminManagedUserData {
+        user_id: record.user_id,
+        username: record.username,
+        nickname: record.nickname,
+        phone: record.phone,
+        roles: record.roles,
+        is_active: record.is_active,
+        account_is_permanent: record.account_is_permanent,
+        account_valid_days: record.account_valid_days,
+        account_expire_at: record.account_expire_at,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+        created_by: record.created_by,
+    }
 }

@@ -74,6 +74,71 @@ export type AdminRenewUserResult = {
   };
 };
 
+export type AdminManagedUserData = {
+  userId: number;
+  username: string;
+  nickname: string;
+  phone?: string;
+  roles: string[];
+  isActive: boolean;
+  accountIsPermanent: boolean;
+  accountValidDays?: number;
+  accountExpireAt?: number;
+  createdAt?: number;
+  updatedAt?: number;
+  createdBy?: string;
+};
+
+export type AdminListUsersPayload = {
+  operatorUsername: string;
+};
+
+export type AdminListUsersResult = {
+  success: boolean;
+  data: AdminManagedUserData[];
+};
+
+export type AdminUpdateUserPayload = {
+  operatorUsername: string;
+  userId: number;
+  username: string;
+  nickname: string;
+  phone?: string;
+  roles: string[];
+  isActive: boolean;
+  accountTermType: "permanent" | "days";
+  accountValidDays?: number;
+};
+
+export type AdminUpdateUserResult = {
+  success: boolean;
+  data: AdminManagedUserData;
+};
+
+export type AdminDeleteUserPayload = {
+  operatorUsername: string;
+  userId: number;
+};
+
+export type AdminDeleteUserResult = {
+  success: boolean;
+  data: boolean;
+};
+
+export type AdminChangeUserPasswordPayload = {
+  operatorUsername: string;
+  userId: number;
+  password: string;
+};
+
+export type AdminChangeUserPasswordResult = {
+  success: boolean;
+  data: {
+    userId: number;
+    username: string;
+  };
+};
+
 export type UserDeviceScopeGetResult = {
   success: boolean;
   data: {
@@ -132,6 +197,51 @@ export const adminRenewUserAccount = (payload: AdminRenewUserPayload) => {
   return invoke<AdminRenewUserResult>("auth_admin_renew_user_account", {
     payload
   });
+};
+
+export const adminListUsers = (payload: AdminListUsersPayload) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`adminListUsers` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<AdminListUsersResult>("auth_admin_list_users", { payload });
+};
+
+export const adminUpdateUser = (payload: AdminUpdateUserPayload) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`adminUpdateUser` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<AdminUpdateUserResult>("auth_admin_update_user", { payload });
+};
+
+export const adminDeleteUser = (payload: AdminDeleteUserPayload) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error("`adminDeleteUser` only supports Tauri desktop runtime.")
+    );
+  }
+  return invoke<AdminDeleteUserResult>("auth_admin_delete_user", { payload });
+};
+
+export const adminChangeUserPassword = (
+  payload: AdminChangeUserPasswordPayload
+) => {
+  if (!isTauri()) {
+    return Promise.reject(
+      new Error(
+        "`adminChangeUserPassword` only supports Tauri desktop runtime."
+      )
+    );
+  }
+  return invoke<AdminChangeUserPasswordResult>(
+    "auth_admin_change_user_password",
+    {
+      payload
+    }
+  );
 };
 
 export const getUserDeviceScope = (userId: number) => {

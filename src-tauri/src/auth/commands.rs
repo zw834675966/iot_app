@@ -116,12 +116,12 @@
 
 use serde_json::Value;
 
+use crate::auth::admin_services;
 use crate::auth::models::{LoginData, LoginPayload, RefreshTokenData, RefreshTokenPayload};
 use crate::auth::services::{
     build_async_routes, build_login_data, mint_token_pair, resolve_user_profile,
     verify_refresh_token,
 };
-use crate::auth::admin_services;
 use crate::core::error::{ApiResponse, AppError, AppResult};
 
 // ==========================================================================================
@@ -312,7 +312,7 @@ pub fn auth_refresh_token(payload: RefreshTokenPayload) -> AppResult<RefreshToke
 ///       {
 ///         "path": "/permission/page/index",
 ///         "name": "PermissionPage",
-///         "meta": { "title": "页面权限" }
+///         "meta": { "title": "用户注册管理" }
 ///       }
 ///     ]
 ///   }

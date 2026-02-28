@@ -4,10 +4,18 @@ import { ref, PropType, nextTick } from "vue";
 import { useNav } from "@/layout/hooks/useNav";
 import { deviceDetection } from "@pureadmin/utils";
 
+const emit = defineEmits<{
+  read: [id: number];
+}>();
+
 defineProps({
   noticeItem: {
     type: Object as PropType<ListItem>,
     default: () => {}
+  },
+  showReadButton: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -45,18 +53,16 @@ function hoverDescription(event, description) {
     ? (descriptionTooltip.value = true)
     : (descriptionTooltip.value = false);
 }
+
+function markRead(id: number) {
+  emit("read", id);
+}
 </script>
 
 <template>
   <div
     class="notice-container border-0 border-b-[1px] border-solid border-[#f0f0f0] dark:border-[#303030]"
   >
-    <el-avatar
-      v-if="noticeItem.avatar"
-      :size="30"
-      :src="noticeItem.avatar"
-      class="notice-container-avatar"
-    />
     <div class="notice-container-text">
       <div class="notice-text-title text-[#000000d9] dark:text-white">
         <el-tooltip
@@ -100,8 +106,19 @@ function hoverDescription(event, description) {
           {{ noticeItem.description }}
         </div>
       </el-tooltip>
-      <div class="notice-text-datetime text-[#00000073] dark:text-white">
-        {{ noticeItem.datetime }}
+      <div class="notice-text-footer">
+        <div class="notice-text-datetime text-[#00000073] dark:text-white">
+          {{ noticeItem.datetime }}
+        </div>
+        <el-button
+          v-if="showReadButton"
+          type="primary"
+          link
+          class="notice-read-btn"
+          @click="markRead(noticeItem.id)"
+        >
+          已读
+        </el-button>
       </div>
     </div>
   </div>
@@ -120,11 +137,6 @@ function hoverDescription(event, description) {
   padding: 12px 0;
 
   // border-bottom: 1px solid #f0f0f0;
-
-  .notice-container-avatar {
-    margin-right: 16px;
-    background: #fff;
-  }
 
   .notice-container-text {
     display: flex;
@@ -169,8 +181,15 @@ function hoverDescription(event, description) {
       -webkit-box-orient: vertical;
     }
 
-    .notice-text-datetime {
+    .notice-text-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-top: 4px;
+
+      .notice-read-btn {
+        padding: 0;
+      }
     }
   }
 }

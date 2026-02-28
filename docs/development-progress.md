@@ -875,3 +875,57 @@ Use this file as a required append-only task log after each completed task.
   - Added this completion entry to `docs/development-progress.md`.
 - Next step:
   - Re-run SQL-level validation in a healthy `sqlite_tools` MCP session to confirm live schema introspection consistency with migration 0004.
+
+## 2026-02-28 12:35 - Upgrade "页面管理" to "用户注册管理" with admin user CRUD and protected admin rule
+- Scope:
+  - Renamed permission page semantics to user registration management:
+    - seed title changed to `用户注册管理`
+    - added one-time migration compensation `0005_permission_page_to_user_registration.sql` for existing databases
+  - Added admin-only user management APIs:
+    - list users: `auth_admin_list_users`
+    - update user profile/roles/status/term: `auth_admin_update_user`
+    - delete user: `auth_admin_delete_user`
+    - change user password: `auth_admin_change_user_password`
+  - Enforced protected admin-user policy:
+    - target username `admin` is not editable/deletable by generic CRUD
+    - `admin` password change remains allowed
+  - Refactored frontend `permission/page`:
+    - page title and behavior switched to user registration management
+    - added registered user table with full info display
+    - non-admin users support edit/delete, admin user only supports password change
+    - retained reserved device-scope interface section
+  - Tauri security boundary evaluation:
+    - capability/permission/CSP/updater settings unchanged
+    - only explicit new invoke commands registered; no wildcard exposure
+    - all new management operations remain admin-gated in service layer
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-1138-user-register-management-crud.md`
+- Changed files:
+  - `src-tauri/src/db/migrations/0002_seed.sql`
+  - `src-tauri/src/db/migrations/0005_permission_page_to_user_registration.sql`
+  - `src-tauri/src/db/migrations.rs`
+  - `src-tauri/src/db/bootstrap.rs`
+  - `src-tauri/src/db/tests.rs`
+  - `src-tauri/src/db/admin_repository.rs`
+  - `src-tauri/src/auth/models.rs`
+  - `src-tauri/src/auth/admin_services.rs`
+  - `src-tauri/src/auth/admin_commands.rs`
+  - `src-tauri/src/lib.rs`
+  - `src-tauri/src/auth/commands.rs`
+  - `src-tauri/src/db/migrations/README.md`
+  - `src/api/user.ts`
+  - `src/views/permission/page/index.vue`
+  - `plan/2026-02-28-1138-user-register-management-crud.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (`30 passed; 0 failed`; doctest passed)
+  - command: `pnpm typecheck`
+  - result: passed
+  - command: `pnpm lint`
+  - result: passed
+- Documentation updated:
+  - Updated plan execution file `plan/2026-02-28-1138-user-register-management-crud.md`
+  - Added this task entry to `docs/development-progress.md`
+- Next step:
+  - Split and commit by feature groups (DB migration, backend CRUD APIs, frontend page/API).

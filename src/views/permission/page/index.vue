@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import {
+  adminChangeUserPassword,
+  adminDeleteUser,
+  adminListUsers,
   adminRegisterUser,
-  adminRenewUserAccount,
+  adminUpdateUser,
   getUserDeviceScope,
+  type AdminManagedUserData,
   upsertUserDeviceScope
 } from "@/api/user";
-import { message } from "@/utils/message";
-import { computed, reactive } from "vue";
 import { useUserStoreHook } from "@/store/modules/user";
+import { message } from "@/utils/message";
+import { ElMessageBox } from "element-plus";
+import { computed, onMounted, reactive, ref } from "vue";
 
 defineOptions({
   name: "PermissionPage"
@@ -16,6 +21,8 @@ defineOptions({
 const userStore = useUserStoreHook();
 const isAdmin = computed(() => userStore.roles.includes("admin"));
 const operatorUsername = computed(() => userStore.username);
+const loadingUsers = ref(false);
+const users = ref<AdminManagedUserData[]>([]);
 
 const roleOptions = [
   { value: "operator", label: "操作员" },
@@ -33,10 +40,23 @@ const registerForm = reactive({
   accountValidDays: 30
 });
 
-const renewForm = reactive({
-  userId: "",
-  renewMode: "days" as "permanent" | "days",
-  renewDays: 30
+const editDialogVisible = ref(false);
+const editUserId = ref<number>(0);
+const editForm = reactive({
+  username: "",
+  nickname: "",
+  phone: "",
+  roles: [] as string[],
+  isActive: true,
+  accountTermType: "days" as "permanent" | "days",
+  accountValidDays: 30
+});
+
+const passwordDialogVisible = ref(false);
+const passwordForm = reactive({
+  userId: 0,
+  username: "",
+  password: ""
 });
 
 const areaOptions = ["华东", "华南", "华北"];
@@ -53,30 +73,57 @@ const deviceForm = reactive({
   devices: [] as string[]
 });
 
-function applyAllSelect(
-  type: "areas" | "floors" | "devices",
-  checked: boolean
-) {
-  if (type === "areas") {
-    deviceForm.areas = checked ? [...areaOptions] : [];
-    return;
+const formatTime = (value?: number) => {
+  if (!value) return "-";
+  return new Date(value).toLocaleString();
+};
+
+const accountText = (user: AdminManagedUserData) => {
+  if (user.accountIsPermanent) return "永久";
+  const days = user.accountValidDays ?? "-";
+  const expireAt = formatTime(user.accountExpireAt);
+  return `${days}天 / 到期: ${expireAt}`;
+};
+
+const isProtectedAdminUser = (user: AdminManagedUserData) =>
+  user.username.toLowerCase() === "admin";
+
+const getDaysFallback = (expireAt?: number) => {
+  if (!expireAt) return 30;
+  const ms = expireAt - Date.now();
+  if (ms <= 0) return 1;
+  return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+};
+
+const validateOperator = () => {
+  if (!isAdmin.value) {
+    message("仅管理员可执行该操作", { type: "warning" });
+    return false;
   }
-  if (type === "floors") {
-    deviceForm.floors = checked ? [...floorOptions] : [];
-    return;
+  if (!operatorUsername.value.trim()) {
+    message("当前登录用户无效，请重新登录", { type: "error" });
+    return false;
   }
-  deviceForm.devices = checked ? [...deviceOptions] : [];
+  return true;
+};
+
+async function loadUsers() {
+  if (!validateOperator()) return;
+  loadingUsers.value = true;
+  try {
+    const result = await adminListUsers({
+      operatorUsername: operatorUsername.value
+    });
+    users.value = [...(result?.data ?? [])];
+  } catch (error: any) {
+    message(error?.message ?? "加载用户列表失败", { type: "error" });
+  } finally {
+    loadingUsers.value = false;
+  }
 }
 
 async function handleRegister() {
-  if (!isAdmin.value) {
-    message("仅管理员可执行注册", { type: "warning" });
-    return;
-  }
-  if (!operatorUsername.value) {
-    message("当前登录用户无效，请重新登录", { type: "error" });
-    return;
-  }
+  if (!validateOperator()) return;
   if (!registerForm.username.trim() || !registerForm.password.trim()) {
     message("账号和密码为必填项", { type: "warning" });
     return;
@@ -104,7 +151,7 @@ async function handleRegister() {
       username: registerForm.username.trim(),
       password: registerForm.password,
       nickname: registerForm.nickname.trim(),
-      phone: registerForm.phone.trim() || undefined,
+      phone: registerForm.phone,
       roles: [...registerForm.roles],
       accountTermType: registerForm.accountTermType,
       accountValidDays:
@@ -120,45 +167,142 @@ async function handleRegister() {
     registerForm.roles = [];
     registerForm.accountTermType = "days";
     registerForm.accountValidDays = 30;
+    await loadUsers();
   } catch (error: any) {
     message(error?.message ?? "用户注册失败", { type: "error" });
   }
 }
 
-async function handleRenew() {
-  if (!isAdmin.value) {
-    message("仅管理员可执行续期", { type: "warning" });
+const openEditDialog = (user: AdminManagedUserData) => {
+  if (isProtectedAdminUser(user)) {
+    message("admin 用户仅允许修改密码", { type: "warning" });
     return;
   }
-  if (!operatorUsername.value) {
-    message("当前登录用户无效，请重新登录", { type: "error" });
+  editUserId.value = user.userId;
+  editForm.username = user.username;
+  editForm.nickname = user.nickname;
+  editForm.phone = user.phone ?? "";
+  editForm.roles = [...(user.roles ?? [])];
+  editForm.isActive = user.isActive;
+  editForm.accountTermType = user.accountIsPermanent ? "permanent" : "days";
+  editForm.accountValidDays =
+    user.accountValidDays ?? getDaysFallback(user.accountExpireAt);
+  editDialogVisible.value = true;
+};
+
+async function handleUpdateUser() {
+  if (!validateOperator()) return;
+  if (editUserId.value <= 0) {
+    message("用户ID无效", { type: "warning" });
     return;
   }
-  const userId = Number(renewForm.userId);
-  if (!Number.isInteger(userId) || userId <= 0) {
-    message("请输入有效的用户 ID", { type: "warning" });
+  if (!editForm.username.trim() || !editForm.nickname.trim()) {
+    message("账号和名称为必填项", { type: "warning" });
+    return;
+  }
+  if (editForm.roles.length === 0) {
+    message("请至少选择一个角色", { type: "warning" });
     return;
   }
   if (
-    renewForm.renewMode === "days" &&
-    (!Number.isFinite(renewForm.renewDays) || renewForm.renewDays <= 0)
+    editForm.accountTermType === "days" &&
+    (!Number.isFinite(editForm.accountValidDays) ||
+      editForm.accountValidDays <= 0)
   ) {
-    message("续期天数必须大于 0", { type: "warning" });
+    message("账号期限天数必须大于 0", { type: "warning" });
     return;
   }
 
   try {
-    await adminRenewUserAccount({
+    await adminUpdateUser({
       operatorUsername: operatorUsername.value,
-      userId,
-      renewMode: renewForm.renewMode,
-      renewDays:
-        renewForm.renewMode === "days" ? Number(renewForm.renewDays) : undefined
+      userId: editUserId.value,
+      username: editForm.username.trim(),
+      nickname: editForm.nickname.trim(),
+      phone: editForm.phone,
+      roles: [...editForm.roles],
+      isActive: editForm.isActive,
+      accountTermType: editForm.accountTermType,
+      accountValidDays:
+        editForm.accountTermType === "days"
+          ? Number(editForm.accountValidDays)
+          : undefined
     });
-    message("账号续期成功", { type: "success" });
+    message("用户更新成功", { type: "success" });
+    editDialogVisible.value = false;
+    await loadUsers();
   } catch (error: any) {
-    message(error?.message ?? "账号续期失败", { type: "error" });
+    message(error?.message ?? "用户更新失败", { type: "error" });
   }
+}
+
+async function handleDeleteUser(user: AdminManagedUserData) {
+  if (!validateOperator()) return;
+  if (isProtectedAdminUser(user)) {
+    message("admin 用户不可删除", { type: "warning" });
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除用户 [${user.username}] 吗？`,
+      "删除确认",
+      {
+        type: "warning",
+        confirmButtonText: "删除",
+        cancelButtonText: "取消"
+      }
+    );
+    await adminDeleteUser({
+      operatorUsername: operatorUsername.value,
+      userId: user.userId
+    });
+    message("删除成功", { type: "success" });
+    await loadUsers();
+  } catch (error: any) {
+    if (error === "cancel") return;
+    message(error?.message ?? "删除失败", { type: "error" });
+  }
+}
+
+const openPasswordDialog = (user: AdminManagedUserData) => {
+  passwordForm.userId = user.userId;
+  passwordForm.username = user.username;
+  passwordForm.password = "";
+  passwordDialogVisible.value = true;
+};
+
+async function handleChangePassword() {
+  if (!validateOperator()) return;
+  if (passwordForm.userId <= 0 || !passwordForm.password.trim()) {
+    message("请输入新密码", { type: "warning" });
+    return;
+  }
+  try {
+    await adminChangeUserPassword({
+      operatorUsername: operatorUsername.value,
+      userId: passwordForm.userId,
+      password: passwordForm.password
+    });
+    message("密码修改成功", { type: "success" });
+    passwordDialogVisible.value = false;
+  } catch (error: any) {
+    message(error?.message ?? "密码修改失败", { type: "error" });
+  }
+}
+
+function applyAllSelect(
+  type: "areas" | "floors" | "devices",
+  checked: boolean
+) {
+  if (type === "areas") {
+    deviceForm.areas = checked ? [...areaOptions] : [];
+    return;
+  }
+  if (type === "floors") {
+    deviceForm.floors = checked ? [...floorOptions] : [];
+    return;
+  }
+  deviceForm.devices = checked ? [...deviceOptions] : [];
 }
 
 async function handleLoadDeviceScope() {
@@ -171,8 +315,7 @@ async function handleLoadDeviceScope() {
   }
   try {
     const result = await getUserDeviceScope(Number(deviceForm.userId));
-    if (!result?.data) return;
-    const { scope } = result.data;
+    const scope = result.data.scope;
     deviceForm.allAreas = scope.allAreas;
     deviceForm.allFloors = scope.allFloors;
     deviceForm.allDevices = scope.allDevices;
@@ -186,6 +329,7 @@ async function handleLoadDeviceScope() {
 }
 
 async function handleSaveDeviceScope() {
+  if (!validateOperator()) return;
   if (
     !Number.isInteger(Number(deviceForm.userId)) ||
     Number(deviceForm.userId) <= 0
@@ -212,6 +356,12 @@ async function handleSaveDeviceScope() {
     message(error?.message ?? "保存设备配置失败", { type: "error" });
   }
 }
+
+onMounted(() => {
+  if (isAdmin.value) {
+    loadUsers();
+  }
+});
 </script>
 
 <template>
@@ -221,14 +371,14 @@ async function handleSaveDeviceScope() {
       type="warning"
       show-icon
       :closable="false"
-      title="当前账号不是管理员，仅可查看页面。注册与续期功能需管理员权限。"
+      title="当前账号不是管理员，仅可查看页面。用户注册管理相关操作需要 admin 权限。"
     />
 
-    <el-card shadow="never">
+    <el-card v-if="isAdmin" shadow="never">
       <template #header>
-        <div class="font-bold">管理员用户注册</div>
+        <div class="font-bold">用户注册管理</div>
       </template>
-      <el-form label-width="110px" class="max-w-[720px]">
+      <el-form label-width="110px" class="max-w-[760px]">
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="账号" required>
@@ -266,7 +416,7 @@ async function handleSaveDeviceScope() {
           </el-col>
         </el-row>
 
-        <el-form-item label="权限角色" required>
+        <el-form-item label="角色" required>
           <el-select
             v-model="registerForm.roles"
             multiple
@@ -310,44 +460,88 @@ async function handleSaveDeviceScope() {
         </el-row>
 
         <el-form-item>
-          <el-button
-            type="primary"
-            :disabled="!isAdmin"
-            @click="handleRegister"
-          >
-            注册用户
-          </el-button>
+          <el-button type="primary" @click="handleRegister">注册用户</el-button>
+          <el-button @click="loadUsers">刷新列表</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card v-if="isAdmin" shadow="never">
       <template #header>
-        <div class="font-bold">账号续期</div>
+        <div class="font-bold">已注册用户信息</div>
       </template>
-      <el-form inline>
-        <el-form-item label="用户 ID" required>
-          <el-input v-model="renewForm.userId" placeholder="请输入用户ID" />
-        </el-form-item>
-        <el-form-item label="续期模式">
-          <el-radio-group v-model="renewForm.renewMode">
-            <el-radio label="days">按天</el-radio>
-            <el-radio label="permanent">永久</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-if="renewForm.renewMode === 'days'" label="续期天数">
-          <el-input-number
-            v-model="renewForm.renewDays"
-            :min="1"
-            :max="36500"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :disabled="!isAdmin" @click="handleRenew">
-            提交续期
-          </el-button>
-        </el-form-item>
-      </el-form>
+      <el-table v-loading="loadingUsers" :data="users" border>
+        <el-table-column prop="userId" label="ID" width="70" />
+        <el-table-column prop="username" label="账号" min-width="130" />
+        <el-table-column prop="nickname" label="名称" min-width="120" />
+        <el-table-column label="电话" min-width="130">
+          <template #default="{ row }">
+            {{ row.phone || "-" }}
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" min-width="160">
+          <template #default="{ row }">
+            <el-tag
+              v-for="role in row.roles"
+              :key="`${row.userId}-${role}`"
+              size="small"
+              class="mr-1"
+            >
+              {{ role }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.isActive ? 'success' : 'danger'" size="small">
+              {{ row.isActive ? "启用" : "禁用" }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="账号期限" min-width="180">
+          <template #default="{ row }">
+            {{ accountText(row) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="创建人" min-width="110">
+          <template #default="{ row }">
+            {{ row.createdBy || "-" }}
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" min-width="170">
+          <template #default="{ row }">
+            {{ formatTime(row.createdAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="更新时间" min-width="170">
+          <template #default="{ row }">
+            {{ formatTime(row.updatedAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="操作" width="230">
+          <template #default="{ row }">
+            <el-button
+              link
+              type="primary"
+              :disabled="isProtectedAdminUser(row)"
+              @click="openEditDialog(row)"
+            >
+              编辑
+            </el-button>
+            <el-button link type="primary" @click="openPasswordDialog(row)">
+              改密
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              :disabled="isProtectedAdminUser(row)"
+              @click="handleDeleteUser(row)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <el-card shadow="never">
@@ -446,5 +640,79 @@ async function handleSaveDeviceScope() {
         </el-form-item>
       </el-form>
     </el-card>
+
+    <el-dialog v-model="editDialogVisible" title="编辑用户" width="680px">
+      <el-form label-width="110px">
+        <el-form-item label="账号" required>
+          <el-input v-model="editForm.username" />
+        </el-form-item>
+        <el-form-item label="名称" required>
+          <el-input v-model="editForm.nickname" />
+        </el-form-item>
+        <el-form-item label="电话">
+          <el-input v-model="editForm.phone" />
+        </el-form-item>
+        <el-form-item label="角色" required>
+          <el-select
+            v-model="editForm.roles"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            class="w-full"
+          >
+            <el-option
+              v-for="item in roleOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-switch v-model="editForm.isActive" />
+        </el-form-item>
+        <el-form-item label="账号期限">
+          <el-radio-group v-model="editForm.accountTermType">
+            <el-radio label="days">按天</el-radio>
+            <el-radio label="permanent">永久</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item
+          v-if="editForm.accountTermType === 'days'"
+          label="期限天数"
+          required
+        >
+          <el-input-number
+            v-model="editForm.accountValidDays"
+            :min="1"
+            :max="36500"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleUpdateUser">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="520px">
+      <el-form label-width="100px">
+        <el-form-item label="账号">
+          <el-input :model-value="passwordForm.username" disabled />
+        </el-form-item>
+        <el-form-item label="新密码" required>
+          <el-input
+            v-model="passwordForm.password"
+            type="password"
+            show-password
+            placeholder="请输入新密码"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleChangePassword">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

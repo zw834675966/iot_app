@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "pure-admin-thin",
+  "productName": "能源管理系统",
   "version": "0.1.0",
   "identifier": "com.pureadmin.thin",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "pure-admin-thin",
+        "title": "能源管理系统",
         "label": "main",
         "width": 1280,
         "height": 800,

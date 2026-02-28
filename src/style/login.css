@@ -38,11 +38,6 @@
   width: 360px;
 }
 
-.avatar {
-  width: 350px;
-  height: 80px;
-}
-
 .login-form h2 {
   text-transform: uppercase;
   margin: 15px 0;
@@ -69,11 +64,6 @@
 
   .img img {
     width: 360px;
-  }
-
-  .avatar {
-    width: 280px;
-    height: 80px;
   }
 }
 

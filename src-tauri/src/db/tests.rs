@@ -1,11 +1,12 @@
-﻿use std::sync::Once;
+use std::sync::Once;
 
 use rusqlite::Connection;
 
 use super::migrations::{
-    apply_one_time_data_fix, apply_user_registration_extension, data_fix_sql, init_schema,
-    init_seed_data, schema_sql, seed_sql, user_registration_extension_sql, DATA_FIX_MIGRATION_ID,
-    USER_REGISTRATION_MIGRATION_ID,
+    DATA_FIX_MIGRATION_ID, PERMISSION_ROUTE_RENAME_MIGRATION_ID, USER_REGISTRATION_MIGRATION_ID,
+    apply_one_time_data_fix, apply_permission_route_rename, apply_user_registration_extension,
+    data_fix_sql, init_schema, init_seed_data, permission_route_rename_sql, schema_sql, seed_sql,
+    user_registration_extension_sql,
 };
 use super::{connect, init_database, set_database_path};
 
@@ -35,10 +36,12 @@ fn loads_sql_scripts_from_files() {
     let seed = seed_sql();
     let data_fix = data_fix_sql();
     let user_registration_extension = user_registration_extension_sql();
+    let permission_route_rename = permission_route_rename_sql();
     assert!(schema.contains("CREATE TABLE IF NOT EXISTS users"));
     assert!(seed.contains("INSERT OR IGNORE INTO routes"));
     assert!(data_fix.contains("UPDATE users"));
     assert!(user_registration_extension.contains("ALTER TABLE users ADD COLUMN phone"));
+    assert!(permission_route_rename.contains("UPDATE routes"));
 }
 
 #[test]
@@ -52,8 +55,11 @@ fn applies_legacy_data_fix_only_once() {
         [],
     )
     .expect("seed legacy avatar");
-    conn.execute("UPDATE routes SET meta_icon = 'ep:lollipop' WHERE id = 1", [])
-        .expect("seed legacy icon");
+    conn.execute(
+        "UPDATE routes SET meta_icon = 'ep:lollipop' WHERE id = 1",
+        [],
+    )
+    .expect("seed legacy icon");
 
     apply_one_time_data_fix(&conn).expect("apply one-time fix");
 
@@ -65,7 +71,9 @@ fn applies_legacy_data_fix_only_once() {
         )
         .expect("query avatar");
     let meta_icon: Option<String> = conn
-        .query_row("SELECT meta_icon FROM routes WHERE id = 1", [], |row| row.get(0))
+        .query_row("SELECT meta_icon FROM routes WHERE id = 1", [], |row| {
+            row.get(0)
+        })
         .expect("query icon");
     let applied_count: i64 = conn
         .query_row(
@@ -94,7 +102,10 @@ fn applies_legacy_data_fix_only_once() {
             |row| row.get(0),
         )
         .expect("query avatar after second run");
-    assert_eq!(avatar_after_second_run, "https://example.com/second-run.png");
+    assert_eq!(
+        avatar_after_second_run,
+        "https://example.com/second-run.png"
+    );
 }
 
 #[test]
@@ -133,4 +144,43 @@ fn applies_user_registration_extension_only_once() {
         )
         .expect("query migration count after second run");
     assert_eq!(migration_count_after_second_run, 1);
+}
+
+#[test]
+fn applies_permission_route_rename_only_once() {
+    let conn = Connection::open_in_memory().expect("open in-memory db");
+    init_schema(&conn).expect("init schema");
+    init_seed_data(&conn).expect("init seed");
+
+    conn.execute("UPDATE routes SET meta_title = '页面权限' WHERE id = 2", [])
+        .expect("set legacy route title");
+
+    apply_permission_route_rename(&conn).expect("apply route title rename");
+
+    let title_after_first_run: String = conn
+        .query_row("SELECT meta_title FROM routes WHERE id = 2", [], |row| {
+            row.get(0)
+        })
+        .expect("query route title");
+    let migration_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(1) FROM app_migrations WHERE id = ?1",
+            [PERMISSION_ROUTE_RENAME_MIGRATION_ID],
+            |row| row.get(0),
+        )
+        .expect("query migration count");
+    assert_eq!(title_after_first_run, "用户注册管理");
+    assert_eq!(migration_count, 1);
+
+    conn.execute("UPDATE routes SET meta_title = '页面权限' WHERE id = 2", [])
+        .expect("reset route title after migration mark");
+
+    apply_permission_route_rename(&conn).expect("skip second run");
+
+    let title_after_second_run: String = conn
+        .query_row("SELECT meta_title FROM routes WHERE id = 2", [], |row| {
+            row.get(0)
+        })
+        .expect("query route title after second run");
+    assert_eq!(title_after_second_run, "页面权限");
 }

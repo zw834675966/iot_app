@@ -11,8 +11,13 @@ description: Use when coding in this repository to enforce mandatory skill loadi
 3. Select implementation skills by language:
    - Rust: start with `rust-router`, then required Rust topic skills. Use Actionbook Rust skills guidance from `https://github.com/actionbook/rust-skills`.
    - TypeScript/Vue: use `test-driven-development` before feature/bugfix edits and `frontend-design` for UI work.
+   - Vue tasks MUST invoke the installed `vuejs-ai/skills` by topic match (`vue-router-best-practices`, `vue-pinia-best-practices`, `vue-options-api-best-practices`, `vue-testing-best-practices`, `vue-jsx-best-practices`, `vue-debug-guides`, `create-adaptable-composable`, default `vue-best-practices`).
 4. If another skill is clearly relevant, invoke it before code edits.
 5. If the task touches Tauri backend/config or IPC contract, load and follow `docs/tauri-framework-constraints.md`.
+6. If the task involves database schema/migration/seed/query work, use SQLite Tools MCP (`sqlite_tools`) to inspect schema and validate SQL behavior before finalizing edits.
+7. Keep Codex skill sources healthy per `docs/ai-skills-usage.md`:
+   - superpowers via native discovery (`~/.agents/skills/superpowers` -> `~/.codex/superpowers/skills`)
+   - vuejs-ai skills via `npx skills add vuejs-ai/skills --yes --global`
 
 ## Task Granularity Rules
 - Keep each task within one AI context: one objective, bounded scope, and clear verification commands.

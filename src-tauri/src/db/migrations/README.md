@@ -106,7 +106,7 @@ permission:btn:delete    -- 按钮删除权限
 
 ```
 权限管理 (/permission)
-├── 页面权限 (/permission/page/index)
+├── 用户注册管理 (/permission/page/index)
 └── 按钮权限 (/permission/button)
     ├── 路由返回按钮权限 (/permission/button/router)
     └── 登录接口返回按钮权限 (/permission/button/login)

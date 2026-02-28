@@ -1,6 +1,6 @@
 # src-tauri — Rust 桌面后端开发者指南
 
-> pure-admin-thin 的 Tauri 桌面端 Rust 后端，负责提供本地模拟 API 和桌面窗口管理。
+> pure-admin-thin 的 Tauri 桌面端 Rust 后端，负责提供本地 SQLite 数据库支持、进程间通信（IPC）接口和桌面窗口管理。
 
 ## 目录结构
 
@@ -17,29 +17,41 @@ src-tauri/
 └── src/
     ├── main.rs         # 桌面应用入口点
     ├── lib.rs          # 库入口 — 模块注册 + Tauri 运行时启动
-    ├── error.rs        # 统一错误类型与 API 响应包装
-    ├── models.rs       # 数据传输对象（DTO）定义
-    ├── services.rs     # 纯业务逻辑（与 Tauri 框架解耦）
-    └── commands.rs     # Tauri IPC 命令处理器 + 单元测试
+    ├── core/           # 核心基础设施层（统一错误与响应封装）
+    │   ├── mod.rs
+    │   └── error.rs
+    ├── auth/           # 鉴权业务领域（领域驱动设计）
+    │   ├── mod.rs
+    │   ├── commands.rs # Tauri IPC 接口层
+    │   ├── services.rs # 纯业务逻辑层 (JWT 签发校验等)
+    │   └── models.rs   # 数据模型层 (DTO)
+    └── db/             # 数据库访问层 (SQLite)
+        ├── mod.rs      # 数据库连接管理与初始化
+        ├── migrations/ # SQL 迁移与种子数据脚本
+        └── auth_repository.rs # 鉴权域数据查询仓储
 ```
 
-## 模块依赖关系
+## 模块架构与设计原则
+
+本项目后端遵循**领域驱动设计 (DDD)** 和 **职责分离** 的原则：
 
 ```
 main.rs
-  └─► lib.rs（run 函数）
-        ├─► commands.rs ─── Tauri 命令薄层
-        │     ├─► error.rs ─── AppError / ApiResponse / AppResult
-        │     ├─► models.rs ── 请求体 / 响应体 DTO
-        │     └─► services.rs ─ 业务逻辑
-        ├─► error.rs
-        ├─► models.rs
-        └─► services.rs
-              ├─► models.rs
-              └─► (标准库 / serde_json)
+  └─► lib.rs（挂载 Tauri 生命周期与 IPC 路由）
+        │
+        ├─► auth/commands.rs  (Adapter Layer: 仅负责参数校验与 IPC 包装)
+        │     └─► auth/services.rs  (Domain Layer: 纯业务规则，无副作用，高可测试)
+        │           ├─► auth/models.rs  (DTO 定义)
+        │           └─► db/auth_repository.rs (Infrastructure Layer: 数据库交互)
+        │
+        ├─► db/mod.rs (基础设施: 管理 SQLite 连接池/文件路径/建表)
+        │
+        └─► core/error.rs (公共层: 统一错误枚举与 JSON 响应格式)
 ```
 
-**设计原则**：依赖方向单向向下，`services.rs` 不依赖 Tauri，可独立测试。
+**核心设计原则**：
+1. **依赖方向单向向下**：`commands` 依赖 `services`，`services` 依赖 `db` 和 `models`，绝不允许反向依赖。
+2. **框架解耦**：`auth/services.rs` 和 `db/*` 中完全不包含任何 Tauri 特定的宏（如 `#[tauri::command]`），使得业务逻辑和数据层可以脱离 GUI 环境独立测试。
 
 ## 快速开始
 
@@ -87,7 +99,7 @@ pnpm tauri build
 
 ## IPC 命令参考
 
-前端通过 Tauri 的 `invoke()` 函数调用后端命令，所有命令定义在 `commands.rs` 中。
+前端通过 Tauri 的 `invoke()` 函数调用后端命令，所有鉴权相关命令定义在 `src/auth/commands.rs` 中。
 
 ### `auth_login` — 用户登录
 
@@ -118,20 +130,13 @@ const result = await invoke("auth_login", {
 | `refreshToken` | `string`   | 刷新令牌                    |
 | `expires`      | `number`   | 过期时间（Unix 毫秒时间戳） |
 
-**内置用户**：
-
-| 用户名   | 角色     | 权限                                        |
-| -------- | -------- | ------------------------------------------- |
-| `admin`  | `admin`  | `*:*:*`（超级管理员）                       |
-| 其他任意 | `common` | `permission:btn:add`, `permission:btn:edit` |
-
 ---
 
 ### `auth_refresh_token` — 刷新令牌
 
 ```typescript
 const result = await invoke("auth_refresh_token", {
-  payload: { refreshToken: "tauri.admin.refresh.1234567890" }
+  payload: { refreshToken: "eyJ0eXAiOi..." }
 });
 ```
 
@@ -140,14 +145,6 @@ const result = await invoke("auth_refresh_token", {
 | 字段           | 类型     | 必填 | 说明               |
 | -------------- | -------- | ---- | ------------------ |
 | `refreshToken` | `string` | ✅   | 当前持有的刷新令牌 |
-
-**成功响应**（`{ success: true, data: RefreshTokenData }`）：
-
-| 字段           | 类型     | 说明       |
-| -------------- | -------- | ---------- |
-| `accessToken`  | `string` | 新访问令牌 |
-| `refreshToken` | `string` | 新刷新令牌 |
-| `expires`      | `number` | 新过期时间 |
 
 ---
 
@@ -159,79 +156,38 @@ const result = await invoke("auth_get_async_routes");
 
 **成功响应**（`{ success: true, data: Route[] }`）：
 
-返回与 `vue-router` 兼容的路由配置 JSON 数组，路由树结构如下：
-
-```
-/permission                      — 权限管理
-├── /permission/page/index       — 页面权限
-└── /permission/button           — 按钮权限
-    ├── /permission/button/router — 路由返回按钮权限
-    └── /permission/button/login  — 登录接口返回按钮权限
-```
+返回与 `vue-router` 兼容的路由配置 JSON 数组，数据动态来源于底层的 `SQLite` 数据库。
 
 ## 错误处理
 
 所有命令的错误响应格式统一：
 
 ```json
-// 校验失败时，前端 invoke() 的 catch 会收到错误字符串
+// 校验或数据库执行失败时，前端 invoke() 的 catch 会收到错误字符串
 "username is required"
 ```
 
-错误类型定义在 `error.rs` 中，当前仅有 `Validation` 变体。扩展新错误类型时：
-
-1. 在 `AppError` 枚举中新增变体
-2. `thiserror` 的 `#[error("...")]` 属性自动生成 `Display` 实现
-3. `Serialize` 实现会将 `Display` 输出序列化为字符串
-
-## 配置文件说明
-
-### `tauri.conf.json`
-
-| 字段                 | 值                      | 说明                        |
-| -------------------- | ----------------------- | --------------------------- |
-| `build.devUrl`       | `http://localhost:8848` | 开发模式前端地址            |
-| `build.frontendDist` | `../dist`               | 生产构建前端资源目录        |
-| `app.windows[0]`     | 1280×800                | 默认窗口尺寸，最小 1024×720 |
-| `bundle.targets`     | `"all"`                 | 构建所有平台安装包格式      |
-
-### `Cargo.toml` Lint 配置
-
-- `unsafe_code = "warn"` — 项目原则上禁止 `unsafe`，出现时发出警告
-- `clippy::all = "warn"` — Clippy 全部默认检查
-- `clippy::pedantic = "warn"` — 更严格的代码风格检查
+错误类型定义在 `core/error.rs` 中。当前包含：
+- `Validation(String)`: 参数校验错误
+- `Database(String)`: `SQLite` 数据库操作错误
 
 ## 扩展指南
 
-### 添加新的 IPC 命令
+当你需要开发新模块（例如 `system` 系统设置）时：
 
-1. **定义请求/响应体**：在 `models.rs` 中添加新的结构体
-2. **实现业务逻辑**：在 `services.rs` 中编写与 Tauri 无关的纯函数
-3. **注册命令**：在 `commands.rs` 中添加 `#[tauri::command]` 函数
-4. **挂载命令**：在 `lib.rs` 的 `invoke_handler` 宏中注册新命令名
-5. **编写测试**：在 `commands.rs` 的 `mod tests` 中添加单元测试
-
-### 添加新的错误类型
-
-```rust
-// error.rs
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum AppError {
-    #[error("{0}")]
-    Validation(String),
-
-    // 新增：数据库错误
-    #[error("数据库操作失败: {0}")]
-    Database(String),
-}
-```
+1. **创建目录**：`mkdir src/system`
+2. **定义模型**：在 `system/models.rs` 定义 DTO
+3. **实现仓储**：在 `db/system_repository.rs` 编写对应的 SQL 增删改查
+4. **业务逻辑**：在 `system/services.rs` 调用仓储并处理业务
+5. **暴露命令**：在 `system/commands.rs` 使用 `#[tauri::command]` 包装服务
+6. **注册模块**：在 `src/lib.rs` 中引入 `pub mod system;` 并在 `invoke_handler!` 中注册命令。
 
 ### 代码质量要求
 
-- **零 `unwrap()`**：业务代码中禁止使用 `.unwrap()` / `.expect()`，使用 `?` 操作符链式传递错误
-- **零 `unsafe`**：除非 FFI 绑定绝对必要，否则禁止使用 `unsafe` 块
-- **Clippy 零警告**：CI 中 `cargo clippy -- -D warnings` 必须通过
-- **所有测试通过**：`cargo test` 必须全部绿色
+- **零 `unwrap()`**：业务代码中禁止使用 `.unwrap()` / `.expect()`，使用 `?` 操作符链式传递错误。
+- **零 `unsafe`**：除非 FFI 绑定绝对必要，否则禁止使用 `unsafe` 块。
+- **Clippy 零警告**：CI 中 `cargo clippy -- -D warnings` 必须通过，所有的 API 需包含适当的文档注释和 `# Errors` 声明。
+- **所有测试通过**：`cargo test` 必须全部绿色，业务逻辑需编写单元测试。
 
 ## 技术栈
 
@@ -239,10 +195,10 @@ pub enum AppError {
 | ----------------------------------------------------- | ---- | ------------------- |
 | [Tauri](https://tauri.app/)                           | 2.10 | 桌面应用框架        |
 | [serde](https://serde.rs/)                            | 1.0  | 序列化/反序列化框架 |
-| [serde_json](https://docs.rs/serde_json/)             | 1.0  | JSON 处理           |
+| [rusqlite](https://docs.rs/rusqlite/)                 | 0.37 | SQLite 数据库驱动   |
 | [thiserror](https://docs.rs/thiserror/)               | 2.0  | 错误类型派生宏      |
 | [tauri-plugin-log](https://docs.rs/tauri-plugin-log/) | 2    | 开发模式日志插件    |
-| [log](https://docs.rs/log/)                           | 0.4  | Rust 日志门面       |
+| [jsonwebtoken](https://docs.rs/jsonwebtoken/)         | 10.3 | JWT 令牌管理        |
 
 ## AI Coding Workflow (Project Rule)
 - Mandatory workflow: `../skills/project-aicode-workflow/SKILL.md`

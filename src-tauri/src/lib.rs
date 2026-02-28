@@ -20,7 +20,9 @@ pub fn run() {
                 .map_err(|err| std::io::Error::other(format!("initialize db failed: {err}")))?;
             auth::admin_services::run_startup_expiration_compensation(auth::services::now_millis())
                 .map_err(|err| {
-                    std::io::Error::other(format!("run account expiration compensation failed: {err}"))
+                    std::io::Error::other(format!(
+                        "run account expiration compensation failed: {err}"
+                    ))
                 })?;
 
             let notice_db_path = db_dir.join("db").join("pure-admin-thin-notice.redb");
@@ -46,6 +48,10 @@ pub fn run() {
             auth::commands::auth_get_async_routes,
             auth::admin_commands::auth_admin_register_user,
             auth::admin_commands::auth_admin_renew_user_account,
+            auth::admin_commands::auth_admin_list_users,
+            auth::admin_commands::auth_admin_update_user,
+            auth::admin_commands::auth_admin_delete_user,
+            auth::admin_commands::auth_admin_change_user_password,
             auth::admin_commands::user_device_scope_get,
             auth::admin_commands::user_device_scope_upsert,
             notice::commands::notice_get_unread_items,

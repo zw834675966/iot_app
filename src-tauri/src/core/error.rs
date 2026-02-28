@@ -20,6 +20,9 @@ pub enum AppError {
     /// 请求参数校验失败，内含具体的错误描述文本。
     #[error("{0}")]
     Validation(String),
+    /// 数据库访问或执行 SQL 失败。
+    #[error("database error: {0}")]
+    Database(String),
 }
 
 /// 为 `AppError` 手动实现 `Serialize`。

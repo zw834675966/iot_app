@@ -4,6 +4,8 @@ use crate::core::error::AppError;
 
 pub(crate) const DATA_FIX_MIGRATION_ID: &str = "0003_legacy_offline_cleanup";
 pub(crate) const USER_REGISTRATION_MIGRATION_ID: &str = "0004_user_registration_extension";
+pub(crate) const PERMISSION_ROUTE_RENAME_MIGRATION_ID: &str =
+    "0005_permission_page_to_user_registration";
 
 pub(crate) fn init_schema(connection: &Connection) -> Result<(), AppError> {
     connection
@@ -63,6 +65,29 @@ pub(crate) fn apply_user_registration_extension(connection: &Connection) -> Resu
     Ok(())
 }
 
+pub(crate) fn apply_permission_route_rename(connection: &Connection) -> Result<(), AppError> {
+    ensure_migration_log_table(connection)?;
+    if is_permission_route_rename_applied(connection)? {
+        return Ok(());
+    }
+
+    connection
+        .execute_batch(permission_route_rename_sql())
+        .map_err(|err| AppError::Database(err.to_string()))?;
+
+    connection
+        .execute(
+            r"
+            INSERT INTO app_migrations (id, applied_at)
+            VALUES (?1, CAST(strftime('%s', 'now') AS INTEGER))
+            ",
+            [PERMISSION_ROUTE_RENAME_MIGRATION_ID],
+        )
+        .map_err(|err| AppError::Database(err.to_string()))?;
+
+    Ok(())
+}
+
 fn ensure_migration_log_table(connection: &Connection) -> Result<(), AppError> {
     connection
         .execute_batch(
@@ -100,6 +125,18 @@ fn is_user_registration_extension_applied(connection: &Connection) -> Result<boo
         .map_err(|err| AppError::Database(err.to_string()))
 }
 
+fn is_permission_route_rename_applied(connection: &Connection) -> Result<bool, AppError> {
+    connection
+        .query_row(
+            "SELECT 1 FROM app_migrations WHERE id = ?1 LIMIT 1",
+            [PERMISSION_ROUTE_RENAME_MIGRATION_ID],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map(|row| row.is_some())
+        .map_err(|err| AppError::Database(err.to_string()))
+}
+
 pub(crate) fn schema_sql() -> &'static str {
     include_str!("migrations/0001_schema.sql")
 }
@@ -114,4 +151,8 @@ pub(crate) fn data_fix_sql() -> &'static str {
 
 pub(crate) fn user_registration_extension_sql() -> &'static str {
     include_str!("migrations/0004_user_registration_extension.sql")
+}
+
+pub(crate) fn permission_route_rename_sql() -> &'static str {
+    include_str!("migrations/0005_permission_page_to_user_registration.sql")
 }
