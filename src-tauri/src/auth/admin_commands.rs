@@ -43,6 +43,7 @@ use crate::auth::services::now_millis;
 
 // 引入核心错误和响应类型，用于统一错误处理和响应格式
 use crate::core::error::{ApiResponse, AppError, AppResult};
+use crate::core::tracing::{TraceContext, execute_traced_command};
 
 // ==========================================================================================
 // 管理员命令实现
@@ -69,11 +70,12 @@ use crate::core::error::{ApiResponse, AppError, AppResult};
 #[tauri::command]
 pub fn auth_admin_register_user(
     payload: AdminRegisterUserPayload,
+    trace: Option<TraceContext>,
 ) -> AppResult<AdminRegisteredUserData> {
-    // 调用管理员服务层处理注册逻辑
-    let data = admin_services::register_user_by_admin(payload, now_millis())?;
-    // 返回成功响应
-    Ok(ApiResponse::ok(data))
+    execute_traced_command("auth_admin_register_user", trace, || {
+        let data = admin_services::register_user_by_admin(payload, now_millis())?;
+        Ok(ApiResponse::ok(data))
+    })
 }
 
 // 管理员延长用户账号有效期限命令
@@ -93,11 +95,12 @@ pub fn auth_admin_register_user(
 #[tauri::command]
 pub fn auth_admin_renew_user_account(
     payload: AdminRenewUserAccountPayload,
+    trace: Option<TraceContext>,
 ) -> AppResult<AdminRenewUserAccountData> {
-    // 调用管理员服务层处理续期逻辑
-    let data = admin_services::renew_user_account_by_admin(payload, now_millis())?;
-    // 返回成功响应
-    Ok(ApiResponse::ok(data))
+    execute_traced_command("auth_admin_renew_user_account", trace, || {
+        let data = admin_services::renew_user_account_by_admin(payload, now_millis())?;
+        Ok(ApiResponse::ok(data))
+    })
 }
 
 // 管理员列出系统中所有被管理用户命令
@@ -114,11 +117,12 @@ pub fn auth_admin_renew_user_account(
 #[tauri::command]
 pub fn auth_admin_list_users(
     payload: AdminListUsersPayload,
+    trace: Option<TraceContext>,
 ) -> AppResult<Vec<AdminManagedUserData>> {
-    // 调用管理员服务层获取用户列表
-    let data = admin_services::list_users_by_admin(payload, now_millis())?;
-    // 返回成功响应
-    Ok(ApiResponse::ok(data))
+    execute_traced_command("auth_admin_list_users", trace, || {
+        let data = admin_services::list_users_by_admin(payload, now_millis())?;
+        Ok(ApiResponse::ok(data))
+    })
 }
 
 // 管理员更新指定用户信息命令
@@ -141,11 +145,14 @@ pub fn auth_admin_list_users(
 // 返回值：
 // 返回更新后的用户信息
 #[tauri::command]
-pub fn auth_admin_update_user(payload: AdminUpdateUserPayload) -> AppResult<AdminManagedUserData> {
-    // 调用管理员服务层处理更新逻辑
-    let data = admin_services::update_user_by_admin(payload, now_millis())?;
-    // 返回成功响应
-    Ok(ApiResponse::ok(data))
+pub fn auth_admin_update_user(
+    payload: AdminUpdateUserPayload,
+    trace: Option<TraceContext>,
+) -> AppResult<AdminManagedUserData> {
+    execute_traced_command("auth_admin_update_user", trace, || {
+        let data = admin_services::update_user_by_admin(payload, now_millis())?;
+        Ok(ApiResponse::ok(data))
+    })
 }
 
 // 管理员删除指定用户命令
@@ -161,11 +168,14 @@ pub fn auth_admin_update_user(payload: AdminUpdateUserPayload) -> AppResult<Admi
 // 返回值：
 // 返回是否删除成功
 #[tauri::command]
-pub fn auth_admin_delete_user(payload: AdminDeleteUserPayload) -> AppResult<bool> {
-    // 调用管理员服务层处理删除逻辑
-    let data = admin_services::delete_user_by_admin(payload, now_millis())?;
-    // 返回成功响应
-    Ok(ApiResponse::ok(data))
+pub fn auth_admin_delete_user(
+    payload: AdminDeleteUserPayload,
+    trace: Option<TraceContext>,
+) -> AppResult<bool> {
+    execute_traced_command("auth_admin_delete_user", trace, || {
+        let data = admin_services::delete_user_by_admin(payload, now_millis())?;
+        Ok(ApiResponse::ok(data))
+    })
 }
 
 // 管理员强制重置或修改任意用户密码命令
@@ -184,11 +194,12 @@ pub fn auth_admin_delete_user(payload: AdminDeleteUserPayload) -> AppResult<bool
 #[tauri::command]
 pub fn auth_admin_change_user_password(
     payload: AdminChangeUserPasswordPayload,
+    trace: Option<TraceContext>,
 ) -> AppResult<AdminChangeUserPasswordData> {
-    // 调用管理员服务层处理密码修改逻辑
-    let data = admin_services::change_user_password_by_admin(payload, now_millis())?;
-    // 返回成功响应
-    Ok(ApiResponse::ok(data))
+    execute_traced_command("auth_admin_change_user_password", trace, || {
+        let data = admin_services::change_user_password_by_admin(payload, now_millis())?;
+        Ok(ApiResponse::ok(data))
+    })
 }
 
 // ==========================================================================================
@@ -209,23 +220,22 @@ pub fn auth_admin_change_user_password(
 #[tauri::command]
 pub fn user_device_scope_get(
     _payload: UserDeviceScopeGetPayload,
+    trace: Option<TraceContext>,
 ) -> AppResult<UserDeviceScopeReservedData> {
-    // 返回预留状态数据
-    Ok(ApiResponse::ok(UserDeviceScopeReservedData {
-        // 标记为未实现
-        implemented: false,
-        // 返回预留消息
-        message: admin_services::reserved_device_scope_message().to_string(),
-        // 返回空的设备范围快照
-        scope: UserDeviceScopeSnapshot {
-            all_areas: false,
-            all_floors: false,
-            all_devices: false,
-            areas: vec![],
-            floors: vec![],
-            devices: vec![],
-        },
-    }))
+    execute_traced_command("user_device_scope_get", trace, || {
+        Ok(ApiResponse::ok(UserDeviceScopeReservedData {
+            implemented: false,
+            message: admin_services::reserved_device_scope_message().to_string(),
+            scope: UserDeviceScopeSnapshot {
+                all_areas: false,
+                all_floors: false,
+                all_devices: false,
+                areas: vec![],
+                floors: vec![],
+                devices: vec![],
+            },
+        }))
+    })
 }
 
 // 预留接口：更新指定用户的设备管理边界
@@ -246,11 +256,15 @@ pub fn user_device_scope_get(
 // 返回值：
 // 返回错误，表示接口尚未实现
 #[tauri::command]
-pub fn user_device_scope_upsert(_payload: UserDeviceScopeUpsertPayload) -> AppResult<bool> {
-    // 返回预留错误
-    Err(AppError::Validation(
-        admin_services::reserved_device_scope_message().to_string(),
-    ))
+pub fn user_device_scope_upsert(
+    _payload: UserDeviceScopeUpsertPayload,
+    trace: Option<TraceContext>,
+) -> AppResult<bool> {
+    execute_traced_command("user_device_scope_upsert", trace, || {
+        Err(AppError::Validation(
+            admin_services::reserved_device_scope_message().to_string(),
+        ))
+    })
 }
 
 // ==========================================================================================
@@ -309,7 +323,7 @@ mod tests {
         };
 
         // 执行注册
-        let result = auth_admin_register_user(payload).expect("register user");
+        let result = auth_admin_register_user(payload, None).expect("register user");
         // 断言用户名正确
         assert!(result.data.username.starts_with("tenant_multi_role_"));
         // 断言包含 tenant 角色
@@ -340,7 +354,7 @@ mod tests {
         };
 
         // 执行注册并期望返回错误
-        let err = auth_admin_register_user(payload).expect_err("expect forbidden");
+        let err = auth_admin_register_user(payload, None).expect_err("expect forbidden");
         // 断言错误消息
         assert_eq!(
             err,
@@ -365,7 +379,7 @@ mod tests {
             account_valid_days: Some(7),
         };
         let register_result =
-            auth_admin_register_user(register_payload).expect("register user for renew");
+            auth_admin_register_user(register_payload, None).expect("register user for renew");
 
         // 续期该用户
         let renew_payload = AdminRenewUserAccountPayload {
@@ -374,7 +388,7 @@ mod tests {
             renew_mode: "days".to_string(),
             renew_days: Some(90),
         };
-        let renewed = auth_admin_renew_user_account(renew_payload).expect("renew account");
+        let renewed = auth_admin_renew_user_account(renew_payload, None).expect("renew account");
         // 断言用户 ID 匹配
         assert_eq!(renewed.data.user_id, register_result.data.user_id);
         // 断言不是永久账号
@@ -397,7 +411,8 @@ mod tests {
             renew_mode: "days".to_string(),
             renew_days: Some(7),
         };
-        let err = auth_admin_renew_user_account(payload).expect_err("expect protected user check");
+        let err =
+            auth_admin_renew_user_account(payload, None).expect_err("expect protected user check");
         // 断言错误消息
         assert_eq!(
             err,
@@ -414,7 +429,7 @@ mod tests {
         let payload = AdminListUsersPayload {
             operator_username: "admin".to_string(),
         };
-        let result = auth_admin_list_users(payload).expect("list users");
+        let result = auth_admin_list_users(payload, None).expect("list users");
         // 断言用户列表不为空
         assert!(!result.data.is_empty());
         // 断言包含 admin 用户
@@ -438,7 +453,7 @@ mod tests {
             account_term_type: "permanent".to_string(),
             account_valid_days: None,
         };
-        let err = auth_admin_update_user(payload).expect_err("expect protected user check");
+        let err = auth_admin_update_user(payload, None).expect_err("expect protected user check");
         // 断言错误消息
         assert_eq!(
             err,
@@ -462,7 +477,7 @@ mod tests {
             account_term_type: "days".to_string(),
             account_valid_days: Some(30),
         };
-        let registered = auth_admin_register_user(register_payload).expect("register user");
+        let registered = auth_admin_register_user(register_payload, None).expect("register user");
 
         // 更新用户
         let update_payload = AdminUpdateUserPayload {
@@ -476,7 +491,7 @@ mod tests {
             account_term_type: "permanent".to_string(),
             account_valid_days: None,
         };
-        let updated = auth_admin_update_user(update_payload).expect("update user");
+        let updated = auth_admin_update_user(update_payload, None).expect("update user");
         // 断言用户 ID 匹配
         assert_eq!(updated.data.user_id, registered.data.user_id);
         // 断言用户名已更新
@@ -497,7 +512,7 @@ mod tests {
             operator_username: "admin".to_string(),
             user_id: updated.data.user_id,
         };
-        let deleted = auth_admin_delete_user(delete_payload).expect("delete user");
+        let deleted = auth_admin_delete_user(delete_payload, None).expect("delete user");
         // 断言删除成功
         assert!(deleted.data);
     }
@@ -513,7 +528,7 @@ mod tests {
             user_id: 1,
             password: "admin123".to_string(),
         };
-        let result = auth_admin_change_user_password(payload).expect("change password");
+        let result = auth_admin_change_user_password(payload, None).expect("change password");
         // 断言用户名正确
         assert_eq!(result.data.username, "admin");
     }
@@ -533,7 +548,7 @@ mod tests {
             floors: vec![],
             devices: vec![],
         };
-        let err = user_device_scope_upsert(payload).expect_err("expect reserved message");
+        let err = user_device_scope_upsert(payload, None).expect_err("expect reserved message");
         // 断言错误消息
         assert_eq!(
             err,

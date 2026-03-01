@@ -95,10 +95,6 @@ const ACCESS_TOKEN_TYPE: &str = "access";
 // 刷新令牌的类型标识
 const REFRESH_TOKEN_TYPE: &str = "refresh";
 
-// 默认的 JWT 密钥
-// 注意：生产环境应通过环境变量 PURE_ADMIN_JWT_SECRET 设置
-const DEFAULT_JWT_SECRET: &str = "pure-admin-thin-dev-secret-change-me";
-
 // ==========================================================================================
 // JWT 声明结构体
 // ==========================================================================================
@@ -158,9 +154,9 @@ fn now_secs() -> u64 {
 
 // 获取 JWT 密钥
 //
-// 获取优先级：
-// 1. 环境变量 PURE_ADMIN_JWT_SECRET
-// 2. 默认密钥（仅用于开发）
+// 来源：
+// 统一通过 `core::config::runtime_config()` 读取，
+// 其内部优先级为：环境变量覆盖 > local.toml > default.toml。
 //
 // 返回值：
 // 返回 JWT 密钥的字符串引用
@@ -172,16 +168,11 @@ fn jwt_secret() -> &'static str {
     // 创建静态 OnceLock 用于延迟初始化
     static JWT_SECRET: OnceLock<String> = OnceLock::new();
     JWT_SECRET
-        // 尝试获取已初始化的密钥，如果未初始化则执行闭包
         .get_or_init(|| {
-            // 尝试从环境变量读取密钥
-            std::env::var("PURE_ADMIN_JWT_SECRET")
-                // 如果环境变量不存在，返回 None
-                .ok()
-                // 过滤掉空字符串
-                .filter(|secret| !secret.trim().is_empty())
-                // 如果环境变量不存在或为空，使用默认密钥
-                .unwrap_or_else(|| DEFAULT_JWT_SECRET.to_string())
+            crate::core::config::runtime_config()
+                .auth
+                .jwt_secret
+                .clone()
         })
         // 转换为字符串引用返回
         .as_str()

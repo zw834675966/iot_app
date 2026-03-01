@@ -47,5 +47,15 @@ INSERT INTO device_registry (device_id, device_name, owner_username, registered_
   ('device-localhost-001', 'Desktop Development Device', 'admin', 1772150000000)
 ON CONFLICT (device_id) DO NOTHING;
 
+INSERT INTO casbin_rule (ptype, v0, v1, v2, v3, v4, v5) VALUES
+  ('p', 'admin', 'user', 'manage', '', '', ''),
+  ('p', 'admin', 'device', 'create', '', '', ''),
+  ('p', 'admin', 'control', 'issue', '', '', ''),
+  ('p', 'admin', 'dashboard', 'view', '', '', ''),
+  ('p', 'operator', 'control', 'issue', '', '', ''),
+  ('p', 'guest', 'dashboard', 'view', '', '', ''),
+  ('p', 'common', 'dashboard', 'view', '', '', '')
+ON CONFLICT (ptype, v0, v1, v2, v3, v4, v5) DO NOTHING;
+
 SELECT setval('users_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM users), 1), true);
 SELECT setval('permissions_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM permissions), 1), true);

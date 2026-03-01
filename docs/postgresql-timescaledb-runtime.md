@@ -12,16 +12,19 @@ For ORM/query/write-routing constraints, treat this as mandatory:
 
 The app reads database URL in this order:
 
-1. `PURE_ADMIN_DATABASE_URL` environment variable
-2. fallback default in code: `postgres://postgres:EMSzw%4018627652962@127.0.0.1:5432/pure_admin_thin`
+1. `src-tauri/config/default.toml`
+2. `src-tauri/config/local.toml` (optional local override)
+3. Environment variables (highest priority):
+   - `PURE_ADMIN_DATABASE_URL` / `PURE_ADMIN_DATABASE__URL`
+   - `PURE_ADMIN_TEST_DATABASE_URL` / `PURE_ADMIN_DATABASE__TEST_URL`
+   - `PURE_ADMIN_JWT_SECRET` / `PURE_ADMIN_AUTH__JWT_SECRET`
+   - `PURE_ADMIN_SERVER_PORT` / `PURE_ADMIN_SERVER__PORT`
 
-For tests, default is:
+For tests, database URL resolution is:
 
-- `postgres://postgres:EMSzw%4018627652962@127.0.0.1:5432/pure_admin_thin_test`
-
-Override with:
-
-- `PURE_ADMIN_TEST_DATABASE_URL`
+1. `PURE_ADMIN_TEST_DATABASE_URL` (if set)
+2. `database.test_url` from config files
+3. `database.url` from config files
 
 ## Required Extensions
 
@@ -34,7 +37,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 ## Suggested local bootstrap
 
 ```powershell
-$env:PGPASSWORD='EMSzw@18627652962'
+$env:PGPASSWORD='<YOUR_POSTGRES_PASSWORD>'
 psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE DATABASE pure_admin_thin"
 psql -h 127.0.0.1 -U postgres -d postgres -c "CREATE DATABASE pure_admin_thin_test"
 psql -h 127.0.0.1 -U postgres -d pure_admin_thin -c "CREATE EXTENSION IF NOT EXISTS timescaledb"

@@ -1,57 +1,83 @@
+//! 数据库模块测试模块
+//!
+//! 本模块包含数据库相关的单元测试和集成测试
+
+// 引入标准库同步原语
 use std::sync::Once;
 
+// 引入 SeaORM 测试相关类型
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
-use sqlx::{Connection as _, PgConnection, query, query_scalar};
+// 引入 SQLx PostgreSQL 连接
+use sqlx::{query, query_scalar, Connection as _, PgConnection};
 
+// 引入迁移模块
 use super::migrations::{
-    DATA_FIX_MIGRATION_ID, HIDE_BUTTON_PERMISSION_ROUTE_MIGRATION_ID,
-    PERMISSION_ROUTE_RENAME_MIGRATION_ID, USER_REGISTRATION_MIGRATION_ID,
     apply_hide_button_permission_route, apply_one_time_data_fix, apply_permission_route_rename,
     apply_user_registration_extension, data_fix_sql, hide_button_permission_route_sql, init_schema,
     init_seed_data, permission_route_rename_sql, schema_sql, seed_sql,
-    user_registration_extension_sql,
+    user_registration_extension_sql, DATA_FIX_MIGRATION_ID,
+    HIDE_BUTTON_PERMISSION_ROUTE_MIGRATION_ID, PERMISSION_ROUTE_RENAME_MIGRATION_ID,
+    USER_REGISTRATION_MIGRATION_ID,
 };
+
+// 引入数据库模块
 use super::{connect, init_database, set_database_url};
 
+/// 隔离数据库结构
+///
+/// 用于测试的临时数据库 schema
+/// 测试结束后自动清理
 struct IsolatedDb {
-    conn: PgConnection,
-    schema: String,
+    conn: PgConnection, // PostgreSQL 连接
+    schema: String,     // schema 名称
 }
 
 impl IsolatedDb {
+    /// 创建新的隔离数据库
     fn new() -> Self {
+        // 连接到测试数据库
         let mut conn = super::block_on(PgConnection::connect(&super::test_database_url()))
             .expect("open postgres test db");
 
+        // 生成唯一的 schema 名称（基于时间戳）
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
         let schema = format!("test_schema_{nanos}");
 
+        // 创建测试 schema
         let create_schema_sql = format!("CREATE SCHEMA {schema}");
         super::block_on(query(&create_schema_sql).execute(&mut conn)).expect("create test schema");
 
+        // 设置搜索路径到测试 schema
         let set_search_path_sql = format!("SET search_path TO {schema}");
         super::block_on(query(&set_search_path_sql).execute(&mut conn)).expect("set search_path");
 
         Self { conn, schema }
     }
 
+    /// 获取数据库连接的可变引用
     fn conn(&mut self) -> &mut PgConnection {
         &mut self.conn
     }
 }
 
+/// Drop 实现：测试结束后自动清理
 impl Drop for IsolatedDb {
     fn drop(&mut self) {
+        // 恢复默认搜索路径
         let _ = super::block_on(query("SET search_path TO public").execute(&mut self.conn));
 
+        // 删除测试 schema（级联删除所有对象）
         let drop_schema_sql = format!("DROP SCHEMA IF EXISTS {} CASCADE", self.schema);
         let _ = super::block_on(query(&drop_schema_sql).execute(&mut self.conn));
     }
 }
 
+/// 确保测试数据库已初始化
+///
+/// 使用 Once 确保只初始化一次
 fn ensure_db_ready() {
     static INIT: Once = Once::new();
     INIT.call_once(|| {
@@ -80,7 +106,9 @@ fn loads_sql_scripts_from_files() {
     let hide_button_permission_route = hide_button_permission_route_sql();
 
     assert!(schema.contains("CREATE TABLE IF NOT EXISTS users"));
+    assert!(schema.contains("CREATE TABLE IF NOT EXISTS casbin_rule"));
     assert!(seed.contains("ON CONFLICT (id) DO NOTHING"));
+    assert!(seed.contains("INSERT INTO casbin_rule"));
     assert!(data_fix.contains("UPDATE users"));
     assert!(
         user_registration_extension.contains("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone")

@@ -1,0 +1,13 @@
+[database]
+url = "postgres://postgres:<YOUR_PASSWORD>@127.0.0.1:5432/pure_admin_thin"
+test_url = "postgres://postgres:<YOUR_PASSWORD>@127.0.0.1:5432/pure_admin_thin_test"
+
+[auth]
+jwt_secret = "<YOUR_STRONG_JWT_SECRET>"
+
+[server]
+port = 8848
+
+[logging]
+level = "info"
+directory = "logs"

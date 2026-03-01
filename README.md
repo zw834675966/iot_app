@@ -52,12 +52,20 @@ pnpm tauri build
 
 `src-tauri` 运行时读取顺序：
 
-1. 环境变量 `PURE_ADMIN_DATABASE_URL`
-2. 代码内默认值（当前实现存在默认本地连接，建议生产环境显式覆盖）
+1. `src-tauri/config/default.toml`
+2. `src-tauri/config/local.toml`（可选，本地覆盖层）
+3. 环境变量覆盖（最高优先级）
 
 测试环境可使用：
 
 - `PURE_ADMIN_TEST_DATABASE_URL`
+
+常用覆盖变量：
+
+- `PURE_ADMIN_DATABASE_URL` / `PURE_ADMIN_DATABASE__URL`
+- `PURE_ADMIN_TEST_DATABASE_URL` / `PURE_ADMIN_DATABASE__TEST_URL`
+- `PURE_ADMIN_JWT_SECRET` / `PURE_ADMIN_AUTH__JWT_SECRET`
+- `PURE_ADMIN_SERVER_PORT` / `PURE_ADMIN_SERVER__PORT`
 
 ### 推荐本地初始化
 

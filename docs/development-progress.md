@@ -6,6 +6,7 @@ Use this file as a required append-only task log after each completed task.
 
 ```md
 ## YYYY-MM-DD - Task Title
+
 - Scope:
 - Changed files:
 - Verification:
@@ -16,6 +17,7 @@ Use this file as a required append-only task log after each completed task.
 ```
 
 ## 2026-02-27 - Establish mandatory AI coding skill workflow
+
 - Scope:
   - Added project-level skill workflow and enforced skill-first coding rules.
   - Added module size, task granularity, and mandatory progress/doc update rules.
@@ -41,6 +43,7 @@ Use this file as a required append-only task log after each completed task.
   - Apply this workflow to the next implementation task and append a new entry.
 
 ## 2026-02-27 - Add latest Tauri framework constraints for AI coding
+
 - Scope:
   - Collected latest official Tauri v2 framework guidance and release baseline.
   - Added mandatory Tauri pre-edit thinking checklist and security/runtime constraints.
@@ -65,6 +68,7 @@ Use this file as a required append-only task log after each completed task.
   - Enforce this checklist on the next `src-tauri` code change and verify with `cargo test`.
 
 ## 2026-02-27 10:08 - Add plan directory and timestamp sync workflow
+
 - Scope:
   - Added a root `plan/` directory for per-task planning and time-sequenced progress tracking.
   - Updated project skill rules to require timestamped sync updates during implementation.
@@ -88,6 +92,7 @@ Use this file as a required append-only task log after each completed task.
   - Use `plan/YYYY-MM-DD-HHMM-<task>.md` for each new task and append timestamp lines after each meaningful change.
 
 ## 2026-02-27 10:28 - Auth uses SQLite for user profile, device registry, and async routes
+
 - Scope:
   - Introduced a new `src-tauri/src/db` module to own SQLite path config, schema bootstrap, and seed data.
   - Migrated auth user profile lookup and async (dynamic) route configuration from hardcoded Rust data to SQL queries.
@@ -125,6 +130,7 @@ Use this file as a required append-only task log after each completed task.
   - Add device registration CRUD commands/services on top of `device_registry` when the API contract is ready.
 
 ## 2026-02-27 10:41 - Extract DB schema/seed SQL into migration files
+
 - Scope:
   - Split inline SQLite schema and seed SQL out of `src-tauri/src/db/mod.rs`.
   - Added standalone migration scripts and loaded them from files during DB initialization.
@@ -153,6 +159,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: add migration version tracking table (e.g., `schema_migrations`) for future incremental DB upgrades.
 
 ## 2026-02-27 11:03 - Add mandatory DBHub MCP policy to AGENTS and project skill workflow
+
 - Scope:
   - Added repository-level policy requiring DBHub MCP for database-related tasks.
   - Added Rust/Tauri scoped DBHub requirement in `src-tauri/AGENTS.md`.
@@ -175,6 +182,7 @@ Use this file as a required append-only task log after each completed task.
   - Use DBHub MCP (`dbhub`) as the default DB inspection/SQL validation path in the next DB-related implementation task.
 
 ## 2026-02-27 11:10 - Document runtime database location in README
+
 - Scope:
   - Added a dedicated README section that explains where the Tauri SQLite database is stored.
   - Documented the Windows path pattern and current local example path for quick troubleshooting.
@@ -195,6 +203,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: add the same DB location note to `src-tauri/README.md` for backend-focused onboarding.
 
 ## 2026-02-27 11:24 - Replace custom token strings with jsonwebtoken JWT
+
 - Scope:
   - Replaced string-concatenated tokens with standard JWT generation via `jsonwebtoken`.
   - Added refresh token verification (signature/expiry/type) before issuing a new token pair.
@@ -226,6 +235,7 @@ Use this file as a required append-only task log after each completed task.
   - Move `PURE_ADMIN_JWT_SECRET` from dev fallback to environment-based configuration in packaging/CI for production builds.
 
 ## 2026-02-27 11:42 - Slim src for local-only desktop runtime
+
 - Scope:
   - Removed dead `src/` modules and directives that were not referenced by runtime code.
   - Replaced runtime external links/resources in `src` with local/offline-safe content.
@@ -272,6 +282,7 @@ Use this file as a required append-only task log after each completed task.
   - Replace external avatar/icon seed values in `src-tauri/src/db/migrations/0002_seed.sql` with local/offline-safe defaults, then run `cargo test`.
 
 ## 2026-02-27 11:47 - Make DB seed values offline-safe
+
 - Scope:
   - Replaced external avatar URLs in SQLite seed users with offline-safe empty values (frontend local avatar fallback).
   - Replaced dynamic route seed icon `ep:lollipop` with local offline-registered icon `ri/information-line`.
@@ -294,6 +305,7 @@ Use this file as a required append-only task log after each completed task.
   - If you also want strict local-only behavior on first run, add a one-time migration to normalize existing old DB rows that still contain external URLs.
 
 ## 2026-02-27 11:50 - Fix DBHub no-resource troubleshooting and Tauri DB location docs
+
 - Scope:
   - Clarified Tauri local database runtime path wording in root `README.md`.
   - Added actionable troubleshooting for "no dbhub resources/tools" in `mcp.md`.
@@ -315,6 +327,7 @@ Use this file as a required append-only task log after each completed task.
   - If needed, add the same troubleshooting snippet to `src-tauri/README.md` for backend onboarding consistency.
 
 ## 2026-02-27 - Remove frontend display of Copyright and link
+
 - Scope:
   - Removed `lay-footer` component to stop displaying "Copyright 漏 2020-present 鑳芥簮绠＄悊绯荤粺" on the frontend.
   - Removed references to `LayFooter` in `lay-content/index.vue`.
@@ -331,6 +344,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-27 11:58 - Add one-time legacy avatar/icon cleanup migration
+
 - Scope:
   - Added one-time legacy data-fix migration to clean external avatar URLs and online icon values in existing SQLite databases.
   - Added migration guard table `app_migrations` so cleanup runs once per database.
@@ -354,6 +368,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-27 12:24 - Remove login avatar icon
+
 - Scope:
   - Removed the unnecessary avatar icon block from the login page UI.
   - Cleaned login static exports and login CSS avatar styles that became unused.
@@ -379,6 +394,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-27 12:44 - Remove user avatar from top navigation
+
 - Scope:
   - Removed user avatar rendering from top navigation user dropdown in vertical, horizontal, and mix layouts.
   - Removed now-unused avatar-related fields from `useNav` to prevent future navbar avatar usage.
@@ -406,6 +422,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-27 - Rewrite root README.md
+
 - Scope:
   - Rewrote `README.md` to reflect the current state of the project as an offline-first Tauri desktop application ("能源管理系统").
   - Replaced outdated `vue-pure-admin` links and descriptions with correct architecture descriptions (Vue 3 + Tauri v2 + Rust + SQLite).
@@ -423,6 +440,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-27 12:50 - Remove avatar in notice panel items
+
 - Scope:
   - Removed avatar rendering from notice panel list items.
   - Kept title, description, tag, and datetime display behavior unchanged.
@@ -444,7 +462,9 @@ Use this file as a required append-only task log after each completed task.
   - Added this task entry to `docs/development-progress.md`.
 - Next step:
   - N/A
+
 ## 2026-02-27 - Rewrite Rust backend documentation
+
 - Scope:
   - Deep read `src-tauri` structure, code (`src-tauri/src/*/*.rs`), and SQL migrations (`src-tauri/src/db/migrations/*.sql`).
   - Rewrote `src-tauri/README.md` to clarify the current DDD architecture (Commands -> Services -> Repository).
@@ -466,6 +486,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-27 13:12 - Migrate notice/message/todo to redb with read-state flow
+
 - Scope:
   - Added a new Rust `notice` module backed by `redb` for notice center data (通知/消息/待办).
   - Added Tauri IPC commands to list unread items and mark a notice as read.
@@ -509,6 +530,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: add a dedicated “已读列表/回收站” tab if you need to review already read items.
 
 ## 2026-02-27 13:19 - Add read tab in notice panel with redb read-list query
+
 - Scope:
   - Added backend read-list query for notice center (`isRead = true`) with new Tauri IPC command.
   - Added frontend `已读` tab to display read items.
@@ -550,6 +572,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: add "全部已读" batch action in notice panel.
 
 ## 2026-02-27 13:31 - Install vuejs-ai skills + superpowers and enforce Vue skill routing constraints
+
 - Scope:
   - Installed/updated `vuejs-ai/skills` with the official command and confirmed all Vue skills are available to Codex.
   - Followed superpowers official native-discovery install model (`~/.codex/superpowers` + `~/.agents/skills/superpowers` junction).
@@ -584,6 +607,7 @@ Use this file as a required append-only task log after each completed task.
   - Restart Codex CLI once so this session picks up any newly refreshed skill metadata.
 
 ## 2026-02-27 13:47 - Skills and MCP health check, plus DBHub MCP startup fix
+
 - Scope:
   - Audited project-required skills baseline (`project-aicode-workflow`, `superpowers`, `vuejs-ai/skills`, and required routing skill files).
   - Re-ran official Vue skills installation command to ensure baseline is healthy.
@@ -616,6 +640,7 @@ Use this file as a required append-only task log after each completed task.
   - Restart Codex CLI, then re-check DBHub MCP exposure in a fresh session.
 
 ## 2026-02-27 14:08 - Replace DBHub MCP with SQLite Tools MCP
+
 - Scope:
   - Replaced local database MCP server from `dbhub` to `sqlite_tools` (`mcp-sqlite-tools` + stdio bridge).
   - Migrated repository-level DB MCP policy/docs from DBHub wording to SQLite Tools MCP wording.
@@ -648,6 +673,7 @@ Use this file as a required append-only task log after each completed task.
   - Restart Codex CLI once, then re-check `sqlite_tools` MCP visibility in the new session.
 
 ## 2026-02-28 08:37 - Fix SQLite schema syntax crash and refresh baseline-browser-mapping
+
 - Scope:
   - Fixed startup crash caused by malformed SQL in migration `0001_schema.sql` (`permissions` table statement was not closed).
   - Updated `baseline-browser-mapping` to latest as a direct dev dependency for baseline data freshness.
@@ -679,6 +705,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: clean up failing doctest blocks in `src-tauri/src/auth/services.rs` so full `cargo test` becomes green.
 
 ## 2026-02-28 08:47 - Refactor db mod to interface-only entrypoints
+
 - Scope:
   - Extracted implementation logic out of `src-tauri/src/db/mod.rs`.
   - Kept `mod.rs` as thin entrypoint that only wires modules and forwards interface calls.
@@ -709,6 +736,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: if you want stricter encapsulation, move migration tests into `migrations.rs` internal test module and remove `pub(crate)` exposure of helper functions.
 
 ## 2026-02-28 09:53 - Add notice redb database location to root README
+
 - Scope:
   - Clarified that notice center data (通知/消息/待办) is stored in a separate local `redb` file instead of `pure-admin-thin.sqlite3`.
   - Added runtime path and Windows sample path for notice database in root `README.md`.
@@ -734,6 +762,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: align the same redb location note into `src-tauri/README.md` runtime storage section for backend-only onboarding.
 
 ## 2026-02-28 09:59 - Hide exception page from active menu routes
+
 - Scope:
   - Updated error route module to make "异常页面" passive-only by setting `meta.showLink: false`.
   - Kept exception pages routable (`/error/403`, `/error/404`, `/error/500`) for guard-triggered and manual error navigation.
@@ -757,6 +786,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: if you also want error pages hidden from tags view when opened, set `meta.showLink: false` on each error child route.
 
 ## 2026-02-28 10:05 - Add parent menu icon fallback for collapsed sidebar consistency
+
 - Scope:
   - Added a dynamic-route normalization fallback so any parent directory route (route with children) gets a default icon when `meta.icon` is missing.
   - Kept backend database data unchanged; fix is frontend-side and takes effect on current returned routes.
@@ -778,6 +808,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: if you want different icons by directory type, add a backend-provided icon mapping policy instead of using a single frontend fallback icon.
 
 ## 2026-02-28 10:30 - Draft admin registration + device-reserve operation document (no code changes)
+
 - Scope:
   - Produced a review-first operations/design document for admin-only user registration, account validity lifecycle, and reserved user-device config interface.
   - Kept this task documentation-only; no frontend/backend logic changes were applied.
@@ -802,6 +833,7 @@ Use this file as a required append-only task log after each completed task.
   - After your review approval, execute implementation in phases: DB migration -> backend commands -> frontend page logic.
 
 ## 2026-02-28 10:32 - Finalize confirmed decisions and add reserved API contract doc
+
 - Scope:
   - Applied confirmed business decisions to the operation document:
     - roles: multi-select
@@ -833,6 +865,7 @@ Use this file as a required append-only task log after each completed task.
   - Start phased implementation after your approval: schema migration -> auth/admin commands -> frontend pages -> reserved API stubs.
 
 ## 2026-02-28 11:28 - Implement admin registration + renewal + reserved device scope API (with full verification)
+
 - Scope:
   - Implemented admin-only user registration flow with multi-role support, optional phone, account term (permanent/days), and renewal capability.
   - Added lazy expiration check at login/refresh path and startup compensation deactivation.
@@ -877,6 +910,7 @@ Use this file as a required append-only task log after each completed task.
   - Re-run SQL-level validation in a healthy `sqlite_tools` MCP session to confirm live schema introspection consistency with migration 0004.
 
 ## 2026-02-28 12:35 - Upgrade "页面管理" to "用户注册管理" with admin user CRUD and protected admin rule
+
 - Scope:
   - Renamed permission page semantics to user registration management:
     - seed title changed to `用户注册管理`
@@ -931,6 +965,7 @@ Use this file as a required append-only task log after each completed task.
   - Split and commit by feature groups (DB migration, backend CRUD APIs, frontend page/API).
 
 ## 2026-02-28 14:44 - Reorder permission page sections and collapse management blocks
+
 - Scope:
   - Moved `已注册用户信息` section to the first position on `用户注册管理` page.
   - Converted `用户注册管理` and `用户设备配置（预留）` from always-expanded cards to collapsible sections.
@@ -952,6 +987,7 @@ Use this file as a required append-only task log after each completed task.
   - Repair baseline missing modules, then rerun global `pnpm typecheck`.
 
 ## 2026-02-28 15:06 - Fix missing `@/utils/progress` module resolution in lay-tag
+
 - Scope:
   - Investigated Vite import-analysis failure in `src/layout/components/lay-tag/index.vue`.
   - Restored `@/utils/progress` module path with a local compatibility implementation that does not depend on `nprogress`.
@@ -974,6 +1010,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: if you want the visible top loading bar back, re-introduce `nprogress` dependency and replace the current no-op compatibility shim.
 
 ## 2026-02-28 15:25 - Hide button-permission page from dynamic routes
+
 - Scope:
   - Added one-time DB migration to remove the `/permission/button` route tree (including children) from dynamic route data.
   - Wired the migration into startup DB initialization so existing local databases also hide this page.
@@ -1005,6 +1042,7 @@ Use this file as a required append-only task log after each completed task.
   - Restart app (`pnpm tauri:dev`) so local DB runs migration 0006 and menu updates immediately.
 
 ## 2026-02-28 19:16 - Replace rusqlite with sqlx and migrate DB access layer
+
 - Scope:
   - Replaced `src-tauri` SQLite dependency from `rusqlite` to `sqlx` (`launchbadge/sqlx`) and added explicit Tokio runtime support.
   - Migrated DB core modules (`mod/bootstrap/migrations`) to `sqlx` execution path while preserving existing sync-facing APIs.
@@ -1045,6 +1083,7 @@ Use this file as a required append-only task log after each completed task.
   - Run `pnpm tauri:dev` for one manual startup smoke check against an existing local DB file.
 
 ## 2026-02-28 19:39 - Upgrade Rust tauri-cli to latest stable 2.10.0
+
 - Scope:
   - Verified latest stable `tauri-cli` version from official online source.
   - Upgraded global Rust CLI from `2.9.4` to `2.10.0`.
@@ -1068,6 +1107,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: run `pnpm tauri:dev` for one full interactive smoke check.
 
 ## 2026-02-28 19:02 - Fix redb begin_read missing trait import
+
 - Scope:
   - Fixed a compilation error in `src/notice/repository.rs` where `begin_read` could not be found due to missing `ReadableDatabase` trait import.
   - Fixed cascading type inference errors (`E0282`) for `redb::Table::iter()` and `value.value()` resolving automatically after the trait was correctly imported.
@@ -1086,6 +1126,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-28 20:16 - Switch src-tauri database stack to PostgreSQL 17 + TimescaleDB 2.19
+
 - Scope:
   - Replaced backend storage stack from `sqlite + redb` to PostgreSQL (`sqlx-postgres`) and unified notice storage into PostgreSQL table `notice_items`.
   - Migrated DB connection/config model from local file path to database URL (`PURE_ADMIN_DATABASE_URL` + test URL fallback).
@@ -1133,6 +1174,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: move DB URL credentials to environment-only config for production packaging, and remove hardcoded fallback URL.
 
 ## 2026-02-28 20:22 - Sync root README with PostgreSQL + TimescaleDB runtime
+
 - Scope:
   - Updated root documentation to match the current backend storage architecture.
   - Removed outdated SQLite/redb runtime-path guidance from root README and replaced it with PostgreSQL/TimescaleDB connection guidance.
@@ -1152,6 +1194,7 @@ Use this file as a required append-only task log after each completed task.
   - Optional: synchronize `src-tauri/README.md` wording to remove any remaining SQLite/redb historical phrasing.
 
 ## 2026-02-28 20:55 - DB hybrid optimization: SeaORM CRUD + sqlx complex query boundary
+
 - Scope:
   - Introduced SeaORM into src-tauri for regular entity-based CRUD paths.
   - Split oversized dmin_repository into focused modules:
@@ -1191,6 +1234,7 @@ Use this file as a required append-only task log after each completed task.
   - Resolve the worktree deletion state for src-tauri/src/auth/commands.rs, then rerun full test suite.
 
 ## 2026-02-28 21:11 - Restore auth commands test wiring and complete full Rust verification
+
 - Scope:
   - Restored src-tauri/src/auth/commands.rs into working tree and resolved compile mismatch to current DB API.
   - Updated auth/admin test setup to use db::set_database_url(db::test_database_url()).
@@ -1216,6 +1260,7 @@ Use this file as a required append-only task log after each completed task.
   - N/A
 
 ## 2026-02-28 21:16 - Add database access routing constraints (SeaORM/sqlx + OLTP/Timeseries)
+
 - Scope:
   - Added mandatory, project-level rules for choosing SeaORM vs sqlx/raw SQL.
   - Added explicit write-routing constraints for PostgreSQL OLTP data vs TimescaleDB time-series data.
@@ -1234,7 +1279,8 @@ Use this file as a required append-only task log after each completed task.
   - plan/2026-02-28-2114-db-access-policy-constraints.md
   - docs/development-progress.md
 - Verification:
-  - command: g -n "Database Access Routing Policy|database-access-policy|SeaORM|sqlx|TimescaleDB" AGENTS.md docs/database-access-policy.md docs/postgresql-timescaledb-runtime.md
+  - command:
+    g -n "Database Access Routing Policy|database-access-policy|SeaORM|sqlx|TimescaleDB" AGENTS.md docs/database-access-policy.md docs/postgresql-timescaledb-runtime.md
   - result: passed; all mandatory policy entries and cross-links are present.
 - Documentation updated:
   - Added new policy doc docs/database-access-policy.md.
@@ -1242,3 +1288,286 @@ Use this file as a required append-only task log after each completed task.
   - Added runtime doc link to the policy.
 - Next step:
   - Optional: add a lightweight CI grep/check script to fail PRs when new complex SQL lacks a boundary comment.
+
+## 2026-02-28 22:06 - Introduce Casbin RBAC with PostgreSQL policy store
+
+- Scope:
+  - Integrated `casbin-rs` with `sqlx-adapter` for RBAC policy enforcement.
+  - Added new auth domain module `src-tauri/src/auth/rbac.rs` to centralize RBAC decisions.
+  - Replaced hardcoded admin check in admin domain service with Casbin authorization (`user/manage`).
+  - Added PostgreSQL schema/seed support for policy table `casbin_rule` and default policy rules.
+  - Extended managed-user role normalization to allow `guest`.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged (no new Tauri commands).
+    - async/state safety: no new shared Tauri global state introduced.
+    - CSP/updater/version sync: unchanged.
+- Related plan file in plan/:
+  - plan/2026-02-28-2158-casbin-rbac-postgres.md
+- Changed files:
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src-tauri/src/auth/mod.rs
+  - src-tauri/src/auth/rbac.rs
+  - src-tauri/src/auth/admin_services.rs
+  - src-tauri/src/db/admin_repository.rs
+  - src-tauri/src/db/admin_repository/sqlx_reports.rs
+  - src-tauri/src/db/migrations/0001_schema.sql
+  - src-tauri/src/db/migrations/0002_seed.sql
+  - src-tauri/src/db/tests.rs
+  - src-tauri/src/auth/README.md
+  - src-tauri/src/db/migrations/README.md
+  - plan/2026-02-28-2158-casbin-rbac-postgres.md
+  - docs/development-progress.md
+- Verification:
+  - command: cargo test --manifest-path src-tauri/Cargo.toml
+  - result: passed (34 passed; 0 failed; doctest 1 passed).
+- Documentation updated:
+  - Added RBAC/Casbin usage note to `src-tauri/src/auth/README.md`.
+  - Added `casbin_rule` and RBAC seed details to `src-tauri/src/db/migrations/README.md`.
+  - Added this task entry to `docs/development-progress.md`.
+- Next step:
+  - Optional: add explicit RBAC checks to future device-control IPC commands once those command endpoints are implemented.
+
+## 2026-02-28 22:32 - Introduce layered runtime config (config.toml + env) for DB/JWT/port
+
+- Scope:
+  - Added a new backend runtime config loader (`core/config.rs`) using `config` crate + `.env` loading.
+  - Moved DB URL and JWT secret resolution out of hardcoded Rust constants into layered config (`default.toml`, optional `local.toml`, env overrides).
+  - Added config precedence tests (RED->GREEN) covering file override and env override behavior.
+  - Added backend config templates and ignored local secret file (`src-tauri/config/local.toml`).
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged.
+    - async/state safety: unchanged; config is read-only via `OnceLock`.
+    - CSP/updater/version sync: unchanged.
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-2220-secure-runtime-config.md`
+- Changed files:
+  - `src-tauri/Cargo.toml`
+  - `src-tauri/Cargo.lock`
+  - `src-tauri/src/core/mod.rs`
+  - `src-tauri/src/core/config.rs`
+  - `src-tauri/src/core/README.md`
+  - `src-tauri/src/db/path_store.rs`
+  - `src-tauri/src/db/mod.rs`
+  - `src-tauri/src/auth/services.rs`
+  - `src-tauri/src/lib.rs`
+  - `src-tauri/config/default.toml`
+  - `src-tauri/config/local.example.toml`
+  - `src-tauri/.gitignore`
+  - `README.md`
+  - `docs/postgresql-timescaledb-runtime.md`
+  - `src-tauri/src/auth/README.md`
+  - `plan/2026-02-28-2220-secure-runtime-config.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml core::config::tests:: -- --nocapture`
+  - result: passed (`3 passed; 0 failed`).
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (`37 passed; 0 failed`; doctest `1 passed`).
+- Documentation updated:
+  - Updated root `README.md` runtime configuration section.
+  - Updated `docs/postgresql-timescaledb-runtime.md` connection resolution and env keys.
+  - Updated `src-tauri/src/auth/README.md` JWT key management notes.
+  - Updated `src-tauri/src/core/README.md` to include config module.
+- Next step:
+  - Optional: move concrete local DB credentials from `src-tauri/config/default.toml` to `src-tauri/config/local.toml` + environment secrets in CI/release environments.
+
+## 2026-02-28 22:46 - Add tracing-based leveled logging and request chain tracing
+
+- Scope:
+  - Introduced `tracing + tracing-subscriber + tracing-appender` for backend observability.
+  - Added runtime logging config ([logging] level/directory) from TOML + env overrides.
+  - Wrapped Tauri command entrypoints with request span context (`request_id`, `command`) and result-level logging (INFO/WARN/ERROR).
+  - Enabled daily rolling log file output while keeping console output enabled.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged (no expansion)
+    - command exposure: unchanged (no new IPC command)
+    - runtime/state safety: command wrappers are lightweight and synchronous, no new shared mutable state
+    - CSP/updater/version sync: unchanged
+- Related plan file in plan/:
+  - plan/2026-02-28-2238-tracing-logging-pipeline.md
+- Changed files:
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src-tauri/src/core/mod.rs
+  - src-tauri/src/core/tracing.rs
+  - src-tauri/src/core/config.rs
+  - src-tauri/src/lib.rs
+  - src-tauri/src/auth/commands.rs
+  - src-tauri/src/auth/admin_commands.rs
+  - src-tauri/src/notice/commands.rs
+  - src-tauri/config/default.toml
+  - src-tauri/config/local.example.toml
+  - src-tauri/src/core/README.md
+  - plan/2026-02-28-2238-tracing-logging-pipeline.md
+  - docs/development-progress.md
+- Verification:
+  - command: cargo test --manifest-path src-tauri/Cargo.toml
+  - result: passed (41 passed; 0 failed + doctest 1 passed).
+- Documentation updated:
+  - Updated src-tauri/src/core/README.md with tracing architecture and logging config/env docs.
+  - Appended this task entry to docs/development-progress.md.
+- Next step:
+  - Optional: add frontend-side correlation id propagation (IPC payload/header level) to correlate UI actions with backend spans.
+
+## 2026-02-28 22:58 - Add frontend-backend trace correlation ID alignment for Tauri invoke
+
+- Scope:
+  - Added a frontend `invokeWithTrace` wrapper that attaches `trace.requestId` to every Tauri invoke call.
+  - Updated auth/notice/routes API modules to route all invokes through the tracing wrapper.
+  - Extended backend tracing pipeline to accept optional frontend trace context and prioritize incoming `requestId` over generated IDs.
+  - Updated Tauri command signatures to accept optional `trace` argument without changing command names or exposure.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged (no new capability or permission grants)
+    - command exposure: unchanged (no new commands, only optional input field)
+    - runtime/state safety: unchanged concurrency model; request id resolution is lock-free atomic fallback
+    - CSP/updater/version sync: unchanged
+- Related plan file in `plan/`:
+  - `plan/2026-02-28-2252-frontend-backend-trace-correlation.md`
+- Changed files:
+  - `src/api/tauriInvoke.ts`
+  - `src/api/user.ts`
+  - `src/api/routes.ts`
+  - `src/api/notice.ts`
+  - `src-tauri/src/core/tracing.rs`
+  - `src-tauri/src/auth/commands.rs`
+  - `src-tauri/src/auth/admin_commands.rs`
+  - `src-tauri/src/notice/commands.rs`
+  - `src-tauri/src/core/README.md`
+  - `plan/2026-02-28-2252-frontend-backend-trace-correlation.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (`43 passed; 0 failed` + doctest `1 passed`).
+  - command: `pnpm typecheck`
+  - result: passed.
+  - command: `pnpm lint`
+  - result: passed.
+- Documentation updated:
+  - Updated `src-tauri/src/core/README.md` with frontend `trace.requestId` contract.
+  - Appended this task entry to `docs/development-progress.md`.
+- Next step:
+  - Optional: return `requestId` in command success/error envelopes to enable UI log panels to deep-link to backend log files.
+
+## 2026-02-28 23:05 - Fix Tauri panic from duplicate logger initialization
+
+- Scope:
+  - Removed auri-plugin-log initialization in src-tauri/src/lib.rs setup hook.
+  - Kept racing as the single logging/tracing pipeline to avoid logger re-initialization conflicts.
+  - Removed direct dependencies log and auri-plugin-log from src-tauri/Cargo.toml.
+  - Updated core logging docs to explicitly forbid simultaneous racing + auri-plugin-log initialization.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged.
+    - runtime/state safety: unchanged; only startup logging initialization path adjusted.
+    - CSP/updater/version sync: unchanged.
+- Related plan file in plan/:
+  - plan/2026-02-28-2301-fix-tauri-log-double-init.md
+- Changed files:
+  - src-tauri/src/lib.rs
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src-tauri/src/core/README.md
+  - plan/2026-02-28-2301-fix-tauri-log-double-init.md
+  - docs/development-progress.md
+- Verification:
+  - command: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+  - result: passed.
+  - command: cargo test --manifest-path src-tauri/Cargo.toml
+  - result: passed (43 passed; 0 failed + doctest 1 passed).
+  - command: cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --color always -- / pnpm tauri:dev
+  - result: timeout-limited in this CLI session; no immediate duplicate-logger panic observed before timeout.
+- Documentation updated:
+  - Updated src-tauri/src/core/README.md runtime constraint note.
+  - Appended this task entry to docs/development-progress.md.
+- Next step:
+  - Re-run pnpm tauri:dev in your local terminal and confirm startup no longer panics.
+
+## 2026-02-28 - Add Chinese comments to db and notice modules
+
+- Scope:
+  - Added line-by-line Chinese comments to all Rust files in src-tauri/src/db/ and src-tauri/src/notice/
+  - Refactored README.md documents for both modules (PostgreSQL version)
+  - Fixed duplicate definition compilation error in db/tests.rs
+- Changed files:
+  - src-tauri/src/db/mod.rs
+  - src-tauri/src/db/bootstrap.rs
+  - src-tauri/src/db/migrations.rs
+  - src-tauri/src/db/path_store.rs
+  - src-tauri/src/db/auth_repository.rs
+  - src-tauri/src/db/admin_repository.rs
+  - src-tauri/src/db/admin_repository/seaorm_users.rs
+  - src-tauri/src/db/admin_repository/sqlx_reports.rs
+  - src-tauri/src/db/entities/mod.rs
+  - src-tauri/src/db/entities/users.rs
+  - src-tauri/src/db/entities/user_roles.rs
+  - src-tauri/src/db/entities/prelude.rs
+  - src-tauri/src/db/tests.rs
+  - src-tauri/src/db/README.md
+  - src-tauri/src/notice/mod.rs
+  - src-tauri/src/notice/commands.rs
+  - src-tauri/src/notice/models.rs
+  - src-tauri/src/notice/repository.rs
+  - src-tauri/src/notice/services.rs
+  - src-tauri/src/notice/README.md
+- Verification:
+  - command: cargo check --manifest-path src-tauri/Cargo.toml
+  - result: passed (compilation successful after fixing duplicate ensure_db_ready)
+- Documentation updated:
+  - Refactored src-tauri/src/db/README.md to PostgreSQL version
+  - Refactored src-tauri/src/notice/README.md to PostgreSQL version
+  - Appended this task entry to docs/development-progress.md
+- Next step:
+
+## 2026-03-01 10:33 - Add Chinese line comments to lib.rs and backend README
+
+- Scope:
+  - Added line-by-line Chinese comments in `src-tauri/src/lib.rs` for startup flow clarity.
+  - Added Chinese technical README for `src-tauri/src/` backend overview.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged (no capability expansion).
+    - command exposure: unchanged (no new commands).
+    - runtime/state safety: unchanged (startup flow only annotated).
+    - CSP/updater/version sync: unchanged.
+- Related plan file in `plan/`:
+  - `plan/2026-03-01-1029-lib-rs-cn-comments.md`
+- Changed files:
+  - `src-tauri/src/lib.rs`
+  - `src-tauri/src/README.md`
+  - `plan/2026-03-01-1029-lib-rs-cn-comments.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (43 passed; 0 failed; doctest 1 passed).
+- Documentation updated:
+  - Added `src-tauri/src/README.md`.
+- Next step:
+  - N/A
+
+## 2026-03-01 10:48 - Fix notice_get_read_items decode failure on NULL extra
+
+- Scope:
+  - Fixed notice read-list decoding when `notice_items.extra` is `NULL` in PostgreSQL rows.
+  - Added regression test covering read-list retrieval with a nullable `extra` value.
+  - Tauri security boundary evaluation:
+    - capabilities/permissions: unchanged.
+    - command exposure: unchanged.
+    - async/state safety: unchanged.
+    - CSP/updater/version sync: unchanged.
+- Related plan file in `plan/`:
+  - `plan/2026-03-01-1046-notice-read-null-extra-fix.md`
+- Changed files:
+  - `src-tauri/src/notice/repository.rs`
+  - `plan/2026-03-01-1046-notice-read-null-extra-fix.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml notice::repository::tests::read_items_allow_null_extra_column -- --nocapture`
+  - result: passed (1 passed; 0 failed).
+  - command: `cargo test --manifest-path src-tauri/Cargo.toml`
+  - result: passed (44 passed; 0 failed; doctest 1 passed).
+- Documentation updated:
+  - Added this progress entry.
+- Next step:
+  - N/A

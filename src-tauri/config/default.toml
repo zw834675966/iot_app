@@ -1,0 +1,13 @@
+[database]
+url = "postgres://postgres:EMSzw%4018627652962@127.0.0.1:5432/pure_admin_thin"
+test_url = "postgres://postgres:EMSzw%4018627652962@127.0.0.1:5432/pure_admin_thin_test"
+
+[auth]
+jwt_secret = "change-me-in-local-or-env"
+
+[server]
+port = 8848
+
+[logging]
+level = "info"
+directory = "logs"

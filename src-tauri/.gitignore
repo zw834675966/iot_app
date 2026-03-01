@@ -3,3 +3,4 @@
 /target/
 /gen/schemas
 /db/*.sqlite3
+/config/local.toml

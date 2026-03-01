@@ -57,6 +57,7 @@
 | `user_roles`       | 用户-角色多对多关联 | `user_id`, `role`                                               |
 | `permissions`      | 权限定义            | `code`(唯一)                                                    |
 | `user_permissions` | 用户-权限直接关联   | `user_id`, `permission_id`                                      |
+| `casbin_rule`      | Casbin RBAC 策略    | `ptype`, `v0..v5`（唯一组合）                                  |
 
 #### 2. 动态路由体系
 
@@ -115,6 +116,15 @@ permission:btn:delete    -- 按钮删除权限
 #### 4. 设备注册
 
 预注册了一个开发设备 `device-localhost-001`，用于演示设备管理功能。
+
+#### 5. RBAC 策略种子
+
+初始化写入 Casbin RBAC 策略（`casbin_rule`）：
+
+- `admin` 可执行用户管理、设备创建、控制下发、仪表盘查看
+- `operator` 可执行控制下发
+- `guest` 可查看仪表盘
+- `common` 兼容映射到仪表盘查看
 
 ---
 

@@ -7,15 +7,20 @@
 const include = [
   "mitt",
   "dayjs",
-  "axios",
   "pinia",
-  "js-cookie",
   "vue-tippy",
   "pinyin-pro",
   "sortablejs",
   "@vueuse/core",
   "@pureadmin/utils",
-  "responsive-storage"
+  "responsive-storage",
+  // 新增：预热更多常用依赖
+  "vue",
+  "vue-router",
+  "element-plus",
+  "@element-plus/icons-vue",
+  "@vueuse/motion",
+  "path-browserify"
 ];
 
 /**

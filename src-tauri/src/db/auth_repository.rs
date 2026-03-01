@@ -1,45 +1,82 @@
+//! 鉴权数据仓储模块
+//! 
+//! 本模块提供用户认证相关的数据查询功能：
+//! - 根据用户名密码查询用户档案
+//! - 查询并构建动态路由树
+//! 
+//! 采用仓储模式封装数据访问逻辑
+
+// 引入标准库集合类型
 use std::collections::HashMap;
 
+// 引入 JSON 序列化相关类型
 use serde_json::{Map, Value};
+
+// 引入 SQLx 查询相关类型
 use sqlx::{Row, query};
 
+// 引入鉴权模型
 use crate::auth::models::UserProfile;
+// 引入应用错误类型
 use crate::core::error::AppError;
+// 引入数据库模块
 use crate::db;
 
+/// 路由行数据结构
+/// 
+/// 从数据库查询的原始路由数据
+/// 包含路由的基本信息和关联的角色/权限
 #[derive(Debug, Clone)]
 struct RouteRow {
-    id: i64,
-    parent_id: Option<i64>,
-    path: String,
-    name: Option<String>,
-    component: Option<String>,
-    meta_title: String,
-    meta_icon: Option<String>,
-    meta_rank: Option<i64>,
-    roles: Vec<String>,
-    auths: Vec<String>,
+    id: i64,                      // 路由唯一标识
+    parent_id: Option<i64>,        // 父路由 ID（用于树形结构）
+    path: String,                 // 路由路径
+    name: Option<String>,          // 路由名称
+    component: Option<String>,    // 路由组件
+    meta_title: String,           // 路由标题
+    meta_icon: Option<String>,    // 路由图标
+    meta_rank: Option<i64>,       // 路由排序
+    roles: Vec<String>,           // 可访问的角色列表
+    auths: Vec<String>,           // 操作权限列表
 }
 
+/// 路由节点数据结构
+/// 
+/// 在内存中构建树形结构时使用
+/// 包含路由信息和子路由列表
 #[derive(Debug, Clone)]
 struct RouteNode {
-    id: i64,
-    path: String,
-    name: Option<String>,
-    component: Option<String>,
-    meta_title: String,
-    meta_icon: Option<String>,
-    meta_rank: Option<i64>,
-    roles: Vec<String>,
-    auths: Vec<String>,
-    children: Vec<RouteNode>,
+    id: i64,                      // 路由唯一标识
+    path: String,                 // 路由路径
+    name: Option<String>,          // 路由名称
+    component: Option<String>,    // 路由组件
+    meta_title: String,           // 路由标题
+    meta_icon: Option<String>,    // 路由图标
+    meta_rank: Option<i64>,       // 路由排序
+    roles: Vec<String>,           // 可访问的角色列表
+    auths: Vec<String>,           // 操作权限列表
+    children: Vec<RouteNode>,     // 子路由列表
 }
 
+/// 根据用户名和密码查询用户档案
+/// 
+/// 执行多表关联查询，获取用户的基本信息、角色和权限
+/// 
+/// # 参数
+/// * `username` - 用户名
+/// * `password` - 密码（明文，会与数据库中的哈希值比对）
+/// 
+/// # 返回
+/// * 成功返回 `Some(UserProfile)`
+/// * 用户不存在或密码错误返回 `None`
+/// * 数据库错误返回 `AppError`
 pub fn find_user_profile(username: &str, password: &str) -> Result<Option<UserProfile>, AppError> {
     db::block_on(async {
+        // 建立异步数据库连接
         let mut connection = db::connect_async().await?;
 
-        // Keep sqlx here: profile join + aggregated permissions is a complex read query.
+        // 使用 sqlx 执行复杂的多表关联查询
+        // 查询用户基本信息、聚合角色和权限
         let row = query(
             r"
             SELECT
@@ -63,10 +100,12 @@ pub fn find_user_profile(username: &str, password: &str) -> Result<Option<UserPr
         .await
         .map_err(|err| AppError::Database(err.to_string()))?;
 
+        // 如果没有匹配的用户，返回 None
         let Some(row) = row else {
             return Ok(None);
         };
 
+        // 提取查询结果到各个字段
         let avatar: String = row
             .try_get(0)
             .map_err(|err| AppError::Database(err.to_string()))?;
@@ -83,6 +122,7 @@ pub fn find_user_profile(username: &str, password: &str) -> Result<Option<UserPr
             .try_get(4)
             .map_err(|err| AppError::Database(err.to_string()))?;
 
+        // 构建用户档案并返回
         Ok(Some(UserProfile {
             avatar,
             username,
@@ -93,11 +133,21 @@ pub fn find_user_profile(username: &str, password: &str) -> Result<Option<UserPr
     })
 }
 
+/// 查询所有动态路由并构建树形结构
+/// 
+/// 从数据库查询路由配置，根据 parent_id 构建树形结构
+/// 返回前端 vue-router 所需的路由数组
+/// 
+/// # 返回
+/// * 成功返回路由 JSON 数组
+/// * 失败返回 `AppError`
 pub fn find_async_routes() -> Result<Vec<Value>, AppError> {
     db::block_on(async {
+        // 建立异步数据库连接
         let mut connection = db::connect_async().await?;
 
-        // Keep sqlx here: route tree assembly depends on aggregate-heavy result shape.
+        // 查询所有路由及其关联的角色和权限
+        // 使用 LEFT JOIN 确保即使没有角色/权限的路由也能返回
         let rows = query(
             r"
             SELECT
@@ -130,6 +180,7 @@ pub fn find_async_routes() -> Result<Vec<Value>, AppError> {
         .await
         .map_err(|err| AppError::Database(err.to_string()))?;
 
+        // 将查询结果转换为 RouteRow 结构
         let mut route_rows = Vec::with_capacity(rows.len());
         for row in rows {
             let id: i64 = row
@@ -177,6 +228,7 @@ pub fn find_async_routes() -> Result<Vec<Value>, AppError> {
             });
         }
 
+        // 按父 ID 分组，构建 HashMap
         let mut grouped: HashMap<Option<i64>, Vec<RouteNode>> = HashMap::new();
         for row in route_rows {
             grouped.entry(row.parent_id).or_default().push(RouteNode {
@@ -193,11 +245,23 @@ pub fn find_async_routes() -> Result<Vec<Value>, AppError> {
             });
         }
 
+        // 递归组装路由树，从根节点（parent_id = None）开始
         let tree = assemble_route_tree(None, &mut grouped);
+        
+        // 将路由树转换为 JSON 格式
         Ok(tree.into_iter().map(route_to_json).collect())
     })
 }
 
+/// 将逗号分隔的字符串拆分为字符串向量
+/// 
+/// 用于处理 SQL STRING_AGG 返回的逗号分隔值
+/// 
+/// # 参数
+/// * `raw` - 原始逗号分隔字符串
+/// 
+/// # 返回
+/// * 去除空白后的字符串向量
 fn split_csv(raw: &str) -> Vec<String> {
     raw.split(',')
         .map(str::trim)
@@ -206,17 +270,39 @@ fn split_csv(raw: &str) -> Vec<String> {
         .collect()
 }
 
+/// 递归组装路由树形结构
+/// 
+/// 根据 parent_id 递归构建父子路由的树形关系
+/// 
+/// # 参数
+/// * `parent_id` - 父路由 ID（None 表示根节点）
+/// * `grouped` - 按父 ID 分组的路由节点映射
+/// 
+/// # 返回
+/// * 当前父节点下的所有子路由节点
 fn assemble_route_tree(
     parent_id: Option<i64>,
     grouped: &mut HashMap<Option<i64>, Vec<RouteNode>>,
 ) -> Vec<RouteNode> {
+    // 取出当前父节点的所有子路由
     let mut current = grouped.remove(&parent_id).unwrap_or_default();
+    
+    // 递归处理每个节点的子路由
     for node in &mut current {
         node.children = assemble_route_tree(Some(node.id), grouped);
     }
     current
 }
 
+/// 将路由节点转换为 JSON 格式
+/// 
+/// 转换为 vue-router 兼容的 JSON 格式
+/// 
+/// # 参数
+/// * `node` - 路由节点
+/// 
+/// # 返回
+/// * JSON 格式的路由对象
 fn route_to_json(node: RouteNode) -> Value {
     let mut route = Map::new();
     route.insert("path".to_string(), Value::String(node.path));
@@ -229,6 +315,7 @@ fn route_to_json(node: RouteNode) -> Value {
         route.insert("component".to_string(), Value::String(component));
     }
 
+    // 构建 meta 元数据对象
     let mut meta = Map::new();
     meta.insert("title".to_string(), Value::String(node.meta_title));
 
@@ -240,6 +327,7 @@ fn route_to_json(node: RouteNode) -> Value {
         meta.insert("rank".to_string(), Value::Number(rank.into()));
     }
 
+    // 添加角色限制
     if !node.roles.is_empty() {
         meta.insert(
             "roles".to_string(),
@@ -247,6 +335,7 @@ fn route_to_json(node: RouteNode) -> Value {
         );
     }
 
+    // 添加操作权限
     if !node.auths.is_empty() {
         meta.insert(
             "auths".to_string(),
@@ -256,6 +345,7 @@ fn route_to_json(node: RouteNode) -> Value {
 
     route.insert("meta".to_string(), Value::Object(meta));
 
+    // 递归添加子路由
     if !node.children.is_empty() {
         route.insert(
             "children".to_string(),

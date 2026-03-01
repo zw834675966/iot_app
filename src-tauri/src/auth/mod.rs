@@ -15,6 +15,7 @@
 //! ├── models.rs           # 数据模型层（DTO）- 数据传输对象
 //! ├── admin_commands.rs   # 管理员 IPC 接口层
 //! ├── admin_services.rs   # 管理员业务逻辑层
+//! ├── rbac.rs             # Casbin RBAC 校验与策略装载
 //! └── README.md           # 模块文档
 //! ```
 //!
@@ -33,6 +34,7 @@
 //! | `admin_commands.rs` | Adapter Layer | 管理员命令处理 | 薄层适配 |
 //! | `services.rs` | Domain Layer | 业务规则、令牌管理、数据库查询 | 纯函数，无框架依赖 |
 //! | `admin_services.rs` | Domain Layer | 管理员业务规则 | 纯函数 |
+//! | `rbac.rs` | Domain Layer | RBAC 策略执行（Casbin） | PostgreSQL 持久化策略 |
 //! | `models.rs` | DTO Layer | 数据结构定义、序列化配置 | 仅包含数据字段 |
 //!
 //! 核心功能：
@@ -57,5 +59,7 @@ pub mod admin_services;
 pub mod commands;
 // 声明并导出模型模块
 pub mod models;
+// 声明并导出 RBAC 模块
+pub mod rbac;
 // 声明并导出服务模块
 pub mod services;

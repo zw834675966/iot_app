@@ -1,4 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invokeWithTrace } from "./tauriInvoke";
 
 export type NoticeItem = {
   id: number;
@@ -22,28 +22,25 @@ type MarkReadResult = {
 };
 
 export const getUnreadNotices = () => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`getUnreadNotices` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<NoticeListResult>("notice_get_unread_items");
+  return invokeWithTrace<NoticeListResult>(
+    "getUnreadNotices",
+    "notice_get_unread_items"
+  );
 };
 
 export const getReadNotices = () => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`getReadNotices` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<NoticeListResult>("notice_get_read_items");
+  return invokeWithTrace<NoticeListResult>(
+    "getReadNotices",
+    "notice_get_read_items"
+  );
 };
 
 export const markNoticeAsRead = (id: number) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`markNoticeAsRead` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<MarkReadResult>("notice_mark_read", { payload: { id } });
+  return invokeWithTrace<MarkReadResult>(
+    "markNoticeAsRead",
+    "notice_mark_read",
+    {
+      payload: { id }
+    }
+  );
 };

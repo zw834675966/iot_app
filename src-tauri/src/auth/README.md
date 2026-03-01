@@ -267,7 +267,7 @@ src-tauri/src/auth/
 ### 安全特性
 
 1. HS256 算法：HMAC-SHA256 签名
-2. 密钥管理：环境变量 PURE_ADMIN_JWT_SECRET
+2. 密钥管理：`core::config` 分层配置（环境变量覆盖配置文件）
 3. 类型校验：区分 access/refresh 令牌
 4. 时间校验：验证过期时间
 
@@ -394,7 +394,7 @@ const REFRESH_TOKEN_LIFETIME_SECONDS: u64 = 7 * 24 * 60 * 60;  // 7天
 
 ### Q2: 如何修改 JWT 密钥？
 
-设置环境变量：
+优先推荐设置环境变量（会覆盖 `src-tauri/config/*.toml` 中的值）：
 
 ```bash
 # Linux/macOS
@@ -402,6 +402,13 @@ export PURE_ADMIN_JWT_SECRET="your-secret-key"
 
 # Windows PowerShell
 $env:PURE_ADMIN_JWT_SECRET="your-secret-key"
+```
+
+或者在配置文件中设置：
+
+```toml
+[auth]
+jwt_secret = "your-secret-key"
 ```
 
 ### Q3: 如何添加新的用户角色？
@@ -414,6 +421,16 @@ $env:PURE_ADMIN_JWT_SECRET="your-secret-key"
 1. 检查数据库用户是否存在
 2. 验证密码是否匹配
 3. 查看 Rust 控制台错误日志
+
+### Q5: RBAC（Casbin）策略放在哪里？
+
+- 策略持久化表：`casbin_rule`（PostgreSQL）
+- 用户角色来源：`user_roles`（业务主数据）
+- 关键规则：
+  - `admin`：`user/manage`、`device/create`、`control/issue`、`dashboard/view`
+  - `operator`：`control/issue`
+  - `guest`：`dashboard/view`
+- 当前管理员接口会走 `auth/rbac.rs` 的 Casbin 检查，不再仅依赖手写 `admin` 判断。
 
 ---
 

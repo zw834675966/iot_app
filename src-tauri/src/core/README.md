@@ -7,7 +7,9 @@
 ```text
 src-tauri/src/core/
 ├── mod.rs          # 模块声明
-└── error.rs        # 全局统一错误与响应封装 (AppError, ApiResponse)
+├── error.rs        # 全局统一错误与响应封装 (AppError, ApiResponse)
+├── config.rs       # 运行时配置加载（config.toml + env）
+└── tracing.rs      # tracing 初始化与请求链路 span 包装
 ```
 
 ## 核心设计
@@ -83,9 +85,45 @@ pub type AppResult<T> = Result<ApiResponse<T>, AppError>;
    ```
 3. 因为手动实现了 `Serialize`，前端在调用失败时会自动收到 `"database error: table not found"` 或者相应的格式化文本。
 
+### 已有扩展
+
+- `config.rs`: 使用 `config` crate 统一读取 `src-tauri/config/default.toml`、`src-tauri/config/local.toml`（可选）以及环境变量覆盖。
+- `tracing.rs`: 使用 `tracing + tracing-subscriber + tracing-appender` 提供分级日志与请求链路追踪：
+  - 控制台输出：按级别输出（INFO/WARN/ERROR）。
+  - 文件输出：按天滚动写入日志文件（daily rotation）。
+  - 请求链路：在 Tauri command 入口创建 `tauri_request` span，包含 `request_id` 与 `command` 字段。
+  - 前端关联：前端 `invoke` 会携带 `trace.requestId`，后端优先使用该值作为 `request_id`，用于端到端链路对齐。
+  - 运行约束：不要再与 `tauri-plugin-log` 同时初始化 logger（否则会触发“logging system was already initialized”）。
+
+### Logging 配置项
+
+`src-tauri/config/default.toml` 支持：
+
+```toml
+[logging]
+level = "info"
+directory = "logs"
+```
+
+可用环境变量覆盖：
+- `PURE_ADMIN_LOGGING_LEVEL` / `PURE_ADMIN_LOGGING__LEVEL`
+- `PURE_ADMIN_LOGGING_DIR` / `PURE_ADMIN_LOGGING__DIRECTORY`
+
+### 前端-后端链路字段约定
+
+前端通过 Tauri `invoke` 传入：
+
+```json
+{
+  "trace": {
+    "requestId": "fe-<session>-<command>-<counter>"
+  }
+}
+```
+
+后端 command 入口参数中使用 `Option<TraceContext>` 接收；若该字段缺失，则后端自动生成内部递增 `request_id`。
+
 ### 未来可能的核心扩展（示例）
 
-如果项目变大，你可以在 `src/core/` 中新增以下模块：
-- `config.rs`: 应用全局配置解析逻辑（结合 Tauri 的 `app_data_dir` 提取用户配置）。
 - `logger.rs`: 自定义的文件日志记录器模块（辅助排查生产问题）。
 - `hardware.rs`: 串口或外部硬件通讯的全局管理状态封装。

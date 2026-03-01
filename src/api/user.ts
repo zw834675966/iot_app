@@ -1,4 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invokeWithTrace } from "./tauriInvoke";
 
 export type UserResult = {
   success: boolean;
@@ -157,86 +157,77 @@ export type UserDeviceScopeGetResult = {
 
 /** 登录 */
 export const getLogin = (data?: object) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`getLogin` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<UserResult>("auth_login", { payload: data ?? {} });
-};
-
-/** 刷新`token` */
-export const refreshTokenApi = (data?: object) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`refreshTokenApi` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<RefreshTokenResult>("auth_refresh_token", {
+  return invokeWithTrace<UserResult>("getLogin", "auth_login", {
     payload: data ?? {}
   });
 };
 
+/** 刷新`token` */
+export const refreshTokenApi = (data?: object) => {
+  return invokeWithTrace<RefreshTokenResult>(
+    "refreshTokenApi",
+    "auth_refresh_token",
+    {
+      payload: data ?? {}
+    }
+  );
+};
+
 export const adminRegisterUser = (payload: AdminRegisterUserPayload) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`adminRegisterUser` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<AdminRegisterUserResult>("auth_admin_register_user", {
-    payload
-  });
+  return invokeWithTrace<AdminRegisterUserResult>(
+    "adminRegisterUser",
+    "auth_admin_register_user",
+    {
+      payload
+    }
+  );
 };
 
 export const adminRenewUserAccount = (payload: AdminRenewUserPayload) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`adminRenewUserAccount` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<AdminRenewUserResult>("auth_admin_renew_user_account", {
-    payload
-  });
+  return invokeWithTrace<AdminRenewUserResult>(
+    "adminRenewUserAccount",
+    "auth_admin_renew_user_account",
+    {
+      payload
+    }
+  );
 };
 
 export const adminListUsers = (payload: AdminListUsersPayload) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`adminListUsers` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<AdminListUsersResult>("auth_admin_list_users", { payload });
+  return invokeWithTrace<AdminListUsersResult>(
+    "adminListUsers",
+    "auth_admin_list_users",
+    {
+      payload
+    }
+  );
 };
 
 export const adminUpdateUser = (payload: AdminUpdateUserPayload) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`adminUpdateUser` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<AdminUpdateUserResult>("auth_admin_update_user", { payload });
+  return invokeWithTrace<AdminUpdateUserResult>(
+    "adminUpdateUser",
+    "auth_admin_update_user",
+    {
+      payload
+    }
+  );
 };
 
 export const adminDeleteUser = (payload: AdminDeleteUserPayload) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`adminDeleteUser` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<AdminDeleteUserResult>("auth_admin_delete_user", { payload });
+  return invokeWithTrace<AdminDeleteUserResult>(
+    "adminDeleteUser",
+    "auth_admin_delete_user",
+    {
+      payload
+    }
+  );
 };
 
 export const adminChangeUserPassword = (
   payload: AdminChangeUserPasswordPayload
 ) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error(
-        "`adminChangeUserPassword` only supports Tauri desktop runtime."
-      )
-    );
-  }
-  return invoke<AdminChangeUserPasswordResult>(
+  return invokeWithTrace<AdminChangeUserPasswordResult>(
+    "adminChangeUserPassword",
     "auth_admin_change_user_password",
     {
       payload
@@ -245,14 +236,13 @@ export const adminChangeUserPassword = (
 };
 
 export const getUserDeviceScope = (userId: number) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`getUserDeviceScope` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke<UserDeviceScopeGetResult>("user_device_scope_get", {
-    payload: { userId }
-  });
+  return invokeWithTrace<UserDeviceScopeGetResult>(
+    "getUserDeviceScope",
+    "user_device_scope_get",
+    {
+      payload: { userId }
+    }
+  );
 };
 
 export const upsertUserDeviceScope = (payload: {
@@ -264,10 +254,7 @@ export const upsertUserDeviceScope = (payload: {
   floors: string[];
   devices: string[];
 }) => {
-  if (!isTauri()) {
-    return Promise.reject(
-      new Error("`upsertUserDeviceScope` only supports Tauri desktop runtime.")
-    );
-  }
-  return invoke("user_device_scope_upsert", { payload });
+  return invokeWithTrace("upsertUserDeviceScope", "user_device_scope_upsert", {
+    payload
+  });
 };

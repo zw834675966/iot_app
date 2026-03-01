@@ -47,6 +47,7 @@ use crate::auth::models::{
     AdminListUsersPayload, AdminManagedUserData, AdminRegisterUserPayload, AdminRegisteredUserData,
     AdminRenewUserAccountData, AdminRenewUserAccountPayload, AdminUpdateUserPayload,
 };
+use crate::auth::rbac;
 // 引入核心错误处理模块
 use crate::core::error::AppError;
 // 引入管理员数据访问层
@@ -70,6 +71,8 @@ const ROLE_TENANT: &str = "tenant";
 
 // 维护人员角色标识
 const ROLE_MAINTAINER: &str = "maintainer";
+// 访客角色标识
+const ROLE_GUEST: &str = "guest";
 
 // 永久期限类型标识
 const TERM_PERMANENT: &str = "permanent";
@@ -120,7 +123,7 @@ pub fn register_user_by_admin(
         ));
     }
     // 验证操作员是否为管理员
-    assert_operator_is_admin(&operator_username, now_millis)?;
+    assert_operator_can_manage_users(&operator_username, now_millis)?;
 
     // 获取并校验新用户名
     let username = payload.username.trim().to_string();
@@ -214,7 +217,7 @@ pub fn renew_user_account_by_admin(
         ));
     }
     // 验证操作员是否为管理员
-    assert_operator_is_admin(&operator_username, now_millis)?;
+    assert_operator_can_manage_users(&operator_username, now_millis)?;
 
     // 校验用户 ID
     if payload.user_id <= 0 {
@@ -303,7 +306,7 @@ pub fn list_users_by_admin(
         ));
     }
     // 验证操作员是否为管理员
-    assert_operator_is_admin(&operator_username, now_millis)?;
+    assert_operator_can_manage_users(&operator_username, now_millis)?;
     // 获取用户列表
     let records = admin_repository::list_users()?;
     // 转换为响应格式并返回
@@ -342,7 +345,7 @@ pub fn update_user_by_admin(
         ));
     }
     // 验证操作员是否为管理员
-    assert_operator_is_admin(&operator_username, now_millis)?;
+    assert_operator_can_manage_users(&operator_username, now_millis)?;
 
     // 校验用户 ID
     if payload.user_id <= 0 {
@@ -421,7 +424,7 @@ pub fn delete_user_by_admin(
         ));
     }
     // 验证操作员是否为管理员
-    assert_operator_is_admin(&operator_username, now_millis)?;
+    assert_operator_can_manage_users(&operator_username, now_millis)?;
     // 校验用户 ID
     if payload.user_id <= 0 {
         return Err(AppError::Validation("userId is required".to_string()));
@@ -469,7 +472,7 @@ pub fn change_user_password_by_admin(
         ));
     }
     // 验证操作员是否为管理员
-    assert_operator_is_admin(&operator_username, now_millis)?;
+    assert_operator_can_manage_users(&operator_username, now_millis)?;
     // 校验用户 ID
     if payload.user_id <= 0 {
         return Err(AppError::Validation("userId is required".to_string()));
@@ -578,12 +581,17 @@ pub fn reserved_device_scope_message() -> &'static str {
 // 返回值：
 // - 成功：返回 ()
 // - 失败：返回 AppError 错误
-fn assert_operator_is_admin(operator_username: &str, now_millis: i64) -> Result<(), AppError> {
-    // 查询操作员是否为管理员
-    if !admin_repository::is_admin_user(operator_username, now_millis)? {
-        return Err(AppError::Validation("forbidden: admin only".to_string()));
-    }
-    Ok(())
+fn assert_operator_can_manage_users(
+    operator_username: &str,
+    now_millis: i64,
+) -> Result<(), AppError> {
+    rbac::ensure_user_allowed(
+        operator_username,
+        rbac::RESOURCE_USER,
+        rbac::ACTION_MANAGE,
+        now_millis,
+        "forbidden: admin only",
+    )
 }
 
 // 规范化角色列表
@@ -626,7 +634,10 @@ fn normalize_roles(raw_roles: Vec<String>) -> Result<Vec<String>, AppError> {
 
 // 检查角色是否允许
 fn is_allowed_role(role: &str) -> bool {
-    matches!(role, ROLE_OPERATOR | ROLE_TENANT | ROLE_MAINTAINER)
+    matches!(
+        role,
+        ROLE_OPERATOR | ROLE_TENANT | ROLE_MAINTAINER | ROLE_GUEST
+    )
 }
 
 // 构建账号期限信息

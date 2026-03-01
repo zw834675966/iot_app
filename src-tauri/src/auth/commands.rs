@@ -123,6 +123,7 @@ use crate::auth::services::{
     verify_refresh_token,
 };
 use crate::core::error::{ApiResponse, AppError, AppResult};
+use crate::core::tracing::{TraceContext, execute_traced_command};
 
 // ==========================================================================================
 // 用户登录命令 (auth_login)
@@ -171,18 +172,20 @@ use crate::core::error::{ApiResponse, AppError, AppResult};
 /// - `login_requires_username`：验证空用户名返回校验错误
 /// - `login_rejects_unknown_user`：验证未知用户登录被拒绝
 #[tauri::command]
-pub fn auth_login(payload: LoginPayload) -> AppResult<LoginData> {
-    let LoginPayload { username, password } = payload;
+pub fn auth_login(payload: LoginPayload, trace: Option<TraceContext>) -> AppResult<LoginData> {
+    execute_traced_command("auth_login", trace, || {
+        let LoginPayload { username, password } = payload;
 
-    if username.trim().is_empty() {
-        return Err(AppError::Validation("username is required".to_string()));
-    }
-    if password.trim().is_empty() {
-        return Err(AppError::Validation("password is required".to_string()));
-    }
+        if username.trim().is_empty() {
+            return Err(AppError::Validation("username is required".to_string()));
+        }
+        if password.trim().is_empty() {
+            return Err(AppError::Validation("password is required".to_string()));
+        }
 
-    let profile = resolve_user_profile(&username, &password)?;
-    Ok(ApiResponse::ok(build_login_data(profile)))
+        let profile = resolve_user_profile(&username, &password)?;
+        Ok(ApiResponse::ok(build_login_data(profile)))
+    })
 }
 
 // ==========================================================================================
@@ -233,23 +236,28 @@ pub fn auth_login(payload: LoginPayload) -> AppResult<LoginData> {
 /// - `refresh_rejects_malformed_token`：验证非法格式令牌被拒绝
 /// - `refresh_rejects_access_token`：验证 access_token 不能用于刷新
 #[tauri::command]
-pub fn auth_refresh_token(payload: RefreshTokenPayload) -> AppResult<RefreshTokenData> {
-    let refresh_token = payload.refresh_token;
-    if refresh_token.trim().is_empty() {
-        return Err(AppError::Validation("refreshToken is required".to_string()));
-    }
-    let subject = verify_refresh_token(&refresh_token)?;
-    admin_services::ensure_user_available_with_message(
-        &subject,
-        "invalid refreshToken",
-        crate::auth::services::now_millis(),
-    )?;
-    let refreshed = mint_token_pair(&subject);
-    Ok(ApiResponse::ok(RefreshTokenData {
-        access_token: refreshed.access_token,
-        refresh_token: refreshed.refresh_token,
-        expires: refreshed.expires,
-    }))
+pub fn auth_refresh_token(
+    payload: RefreshTokenPayload,
+    trace: Option<TraceContext>,
+) -> AppResult<RefreshTokenData> {
+    execute_traced_command("auth_refresh_token", trace, || {
+        let refresh_token = payload.refresh_token;
+        if refresh_token.trim().is_empty() {
+            return Err(AppError::Validation("refreshToken is required".to_string()));
+        }
+        let subject = verify_refresh_token(&refresh_token)?;
+        admin_services::ensure_user_available_with_message(
+            &subject,
+            "invalid refreshToken",
+            crate::auth::services::now_millis(),
+        )?;
+        let refreshed = mint_token_pair(&subject);
+        Ok(ApiResponse::ok(RefreshTokenData {
+            access_token: refreshed.access_token,
+            refresh_token: refreshed.refresh_token,
+            expires: refreshed.expires,
+        }))
+    })
 }
 
 // ==========================================================================================
@@ -296,8 +304,10 @@ pub fn auth_refresh_token(payload: RefreshTokenPayload) -> AppResult<RefreshToke
 /// - 返回的路由数据已经过权限过滤，仅包含用户有权访问的路由
 /// - 路由组件路径需要在前端存在，否则会导致路由跳转失败
 #[tauri::command]
-pub fn auth_get_async_routes() -> AppResult<Vec<Value>> {
-    Ok(ApiResponse::ok(build_async_routes()?))
+pub fn auth_get_async_routes(trace: Option<TraceContext>) -> AppResult<Vec<Value>> {
+    execute_traced_command("auth_get_async_routes", trace, || {
+        Ok(ApiResponse::ok(build_async_routes()?))
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -378,7 +388,7 @@ mod tests {
             username: String::new(),
             password: "admin123".to_string(),
         };
-        let err = auth_login(payload).expect_err("expected validation error");
+        let err = auth_login(payload, None).expect_err("expected validation error");
         assert_eq!(
             err,
             AppError::Validation("username is required".to_string())
@@ -393,7 +403,7 @@ mod tests {
             username: "ghost".to_string(),
             password: "admin123".to_string(),
         };
-        let err = auth_login(payload).expect_err("expected auth error");
+        let err = auth_login(payload, None).expect_err("expected auth error");
         assert_eq!(
             err,
             AppError::Validation("invalid username or password".to_string())
@@ -407,7 +417,7 @@ mod tests {
         let payload = RefreshTokenPayload {
             refresh_token: String::new(),
         };
-        let err = auth_refresh_token(payload).expect_err("expected validation error");
+        let err = auth_refresh_token(payload, None).expect_err("expected validation error");
         assert_eq!(
             err,
             AppError::Validation("refreshToken is required".to_string())
@@ -421,7 +431,7 @@ mod tests {
         let payload = RefreshTokenPayload {
             refresh_token: "not-a-valid-jwt".to_string(),
         };
-        let err = auth_refresh_token(payload).expect_err("expected validation error");
+        let err = auth_refresh_token(payload, None).expect_err("expected validation error");
         assert_eq!(
             err,
             AppError::Validation("invalid refreshToken".to_string())
@@ -436,7 +446,7 @@ mod tests {
         let payload = RefreshTokenPayload {
             refresh_token: token_pair.access_token,
         };
-        let err = auth_refresh_token(payload).expect_err("expected validation error");
+        let err = auth_refresh_token(payload, None).expect_err("expected validation error");
         assert_eq!(
             err,
             AppError::Validation("invalid refreshToken".to_string())
