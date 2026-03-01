@@ -51,9 +51,9 @@ This repository combines a Vue 3 + TypeScript admin UI with a Tauri desktop shel
 
 - `src/`: frontend application code (`views/`, `layout/`, `router/`, `store/modules/`, `api/`, `components/`, `utils/`, `style/`)
 - `src-tauri/`: Rust desktop host (`src/main.rs`, `src/lib.rs`, `tauri.conf.json`)
-- `mock/`: mock API handlers for local development
 - `build/`: Vite build helpers/plugins
 - `public/`: static assets and runtime config (`platform-config.json`)
+- `types/`: shared TypeScript declaration files
 - `docs/`: project documentation and integration notes
 
 ## Build, Test, and Development Commands
@@ -71,7 +71,7 @@ This repository combines a Vue 3 + TypeScript admin UI with a Tauri desktop shel
 - Prettier config uses double quotes, no trailing commas, and minimal arrow parentheses.
 - Vue components are typically organized by feature folder; many route/page entries use `index.vue`.
 - Composables follow `useX.ts` (example: `src/layout/hooks/useLayout.ts`).
-- Keep shared utilities and API wrappers typed; prefer explicit exported types in `src/types/`.
+- Keep shared utilities and API wrappers typed; prefer explicit exported types in `types/`.
 
 ## Testing Guidelines
 - No dedicated JS unit test runner is currently configured; use `pnpm typecheck` and `pnpm lint` as required quality gates.
@@ -79,7 +79,7 @@ This repository combines a Vue 3 + TypeScript admin UI with a Tauri desktop shel
 - For Tauri/Rust changes, add unit tests in `src-tauri/src` (`#[cfg(test)]`) and run `cargo test`.
 
 ## Commit & Pull Request Guidelines
-- Conventional commits are enforced by commitlint (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `release`, etc.).
+- Use Conventional Commits (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `release`, etc.) for all commits.
 - Keep commit subjects short, imperative, and under 108 characters.
 - PRs should include:
   - clear summary and scope

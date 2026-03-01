@@ -1595,3 +1595,23 @@ Use this file as a required append-only task log after each completed task.
 - Verification:
   - command: `git status --short --branch` (post-commit)
   - result: pending
+
+## 2026-03-01 11:24 - AGENTS.md consistency audit and correction
+
+- Scope:
+  - Audited all AGENTS files against current repository layout and tool setup.
+  - Corrected stale root guidance to match real project structure and workflow tooling.
+  - Verified nested AGENTS files are consistent with current directory boundaries.
+- Related plan file in `plan/`:
+  - `plan/2026-03-01-1123-agents-consistency-audit.md`
+- Changed files:
+  - `AGENTS.md`
+  - `plan/2026-03-01-1123-agents-consistency-audit.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `git status --short -- AGENTS.md src/AGENTS.md src-tauri/AGENTS.md src-tauri/src/AGENTS.md`
+  - result: passed (only `AGENTS.md` modified)
+- Documentation updated:
+  - Added this progress entry.
+- Next step:
+  - N/A
