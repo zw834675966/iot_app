@@ -12,6 +12,8 @@ npm-debug.log*
 .pnpm-error.log*
 .pnpm-debug.log
 tests/**/coverage/
+logs/*.log
+src-tauri/logs/*.log
 
 # Editor directories and files
 .idea

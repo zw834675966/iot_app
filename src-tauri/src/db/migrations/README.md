@@ -1,6 +1,6 @@
-# 数据库迁移脚本开发者指南
+# 数据库迁移脚本 (Migrations) 开发者指南
 
-> 本文档详细介绍 `src-tauri/src/db/migrations/` 文件夹中的 SQL 迁移脚本，帮助开发者理解数据库结构设计和扩展开发。
+> 本文档详细介绍 `src-tauri/src/db/migrations/` 文件夹中的 SQL 迁移脚本，旨在帮助开发者深入理解当前系统（基于 PostgreSQL 17）的数据库结构设计、数据演进历程及扩展规范。
 
 ## 目录
 
@@ -10,36 +10,39 @@
   - [0001_schema.sql - 表结构初始化](#0001_schema-sql---表结构初始化)
   - [0002_seed.sql - 初始种子数据](#0002_seed-sql---初始种子数据)
   - [0003_legacy_offline_cleanup.sql - 遗留数据清理](#0003_legacy_offline_cleanupsql---遗留数据清理)
+  - [0004_user_registration_extension.sql - 用户注册与生命周期扩展](#0004_user_registration_extensionsql---用户注册与生命周期扩展)
+  - [0005_permission_page_to_user_registration.sql - 路由节点调整](#0005_permission_page_to_user_registrationsql---路由节点调整)
+  - [0006_hide_button_permission_route.sql - 清理冗余功能](#0006_hide_button_permission_routesql---清理冗余功能)
 - [数据库架构图](#数据库架构图)
 - [开发指南](#开发指南)
-  - [添加新表](#添加新表)
-  - [修改现有表结构](#修改现有表结构)
-  - [添加新迁移](#添加新迁移)
-- [离线安全设计原则](#离线安全设计原则)
-- [常见问题](#常见问题)
+  - [迁移命名与注册规范](#迁移命名与注册规范)
+  - [如何安全地添加新表/新字段](#如何安全地添加新表新字段)
+- [离线环境与安全设计原则](#离线环境与安全设计原则)
 
 ---
 
 ## 概述
 
-本项目的数据库采用 **SQLite** 作为嵌入式存储，通过 Rust 端的迁移脚本在应用首次启动时自动初始化。迁移脚本存放在 `migrations/` 目录下，采用**顺序编号**的命名方式确保执行顺序。
+本项目由于业务复杂度和性能要求，底座数据库已从 SQLite 升级为 **PostgreSQL 17**。所有初始化建表和后期结构/数据调整，都依赖当前目录下的 SQL 迁移脚本实现。
 
-### 设计目标
+### 迁移设计目标
 
-1. **离线优先**：所有数据采用本地存储，无外部网络依赖
-2. **自动迁移**：应用启动时自动执行迁移，无需手动干预
-3. **幂等性**：迁移脚本可安全重复执行，不会造成数据损坏
-4. **可扩展**：支持后续业务功能扩展
+1. **版本化与幂等性**：使用编号排序确保执行顺序。对于建表或特定写入必须具有幂等性（利用 `IF NOT EXISTS` 或 `ON CONFLICT DO NOTHING`），确保重启不会导致数据损坏或报错。
+2. **代码即文档**：迁移文件内的 SQL 语句全部添加了详尽的逐行/段落级中文注释，为接手的开发者提供了最直接的业务参考。
+3. **隔离与自动化**：Rust 后端在连接到 PostgreSQL 实例后，会自动在引导阶段（Bootstrap）获取咨询锁并比对当前迁移状态，自动应用未执行的新脚本。
 
 ---
 
 ## 文件清单
 
-| 文件名                            | 用途               | 执行时机           |
-| --------------------------------- | ------------------ | ------------------ |
-| `0001_schema.sql`                 | 创建所有数据表结构 | 首次启动           |
-| `0002_seed.sql`                   | 插入初始种子数据   | 首次启动           |
-| `0003_legacy_offline_cleanup.sql` | 清理遗留外链数据   | 首次启动（一次性） |
+| 序号 | 文件名                                          | 核心内容/目标                                       |
+| ---- | ----------------------------------------------- | --------------------------------------------------- |
+| 0001 | `0001_schema.sql`                               | 创建所有基础数据表结构 (含用户、权限、路由、设备等) |
+| 0002 | `0002_seed.sql`                                 | 插入系统运行所必须的初始账号、基础路由及RBAC策略    |
+| 0003 | `0003_legacy_offline_cleanup.sql`               | (遗留) 将不支持离线环境的外链图片、图标清洗为安全值 |
+| 0004 | `0004_user_registration_extension.sql`          | 为用户表 (`users`) 添加手机号、账号有效期等扩展列   |
+| 0005 | `0005_permission_page_to_user_registration.sql` | 修改数据库中的硬编码路由名称以贴合最新业务场景      |
+| 0006 | `0006_hide_button_permission_route.sql`         | 移除不需要的前端演示级权限验证子菜单                |
 
 ---
 
@@ -47,113 +50,68 @@
 
 ### 0001_schema.sql - 表结构初始化
 
-本文件创建了系统的核心数据表，涵盖以下领域：
+基于 PostgreSQL 17，搭建了整个应用关系型数据库的地基。
 
 #### 1. 用户与鉴权体系
 
-| 表名               | 说明                | 关键字段                                                        |
-| ------------------ | ------------------- | --------------------------------------------------------------- |
-| `users`            | 用户基本信息        | `username`(唯一), `password`, `nickname`, `avatar`, `is_active` |
-| `user_roles`       | 用户-角色多对多关联 | `user_id`, `role`                                               |
-| `permissions`      | 权限定义            | `code`(唯一)                                                    |
-| `user_permissions` | 用户-权限直接关联   | `user_id`, `permission_id`                                      |
-| `casbin_rule`      | Casbin RBAC 策略    | `ptype`, `v0..v5`（唯一组合）                                  |
+核心包含了用户基础信息以及与其绑定的角色、权限。
+
+- **`users`**: 用户基本信息表。主键为 `BIGSERIAL`，包含 `username`（唯一）、`password`、`nickname` 和 `avatar` 等。
+- **`permissions`**: 系统的可用操作权限表，`code` 保持唯一标识。
+- **`user_roles`** 与 **`user_permissions`**: 多对多关系连接表，通过联合主键防止重复关联。外键全配置为 `ON DELETE CASCADE`，保证删除用户时关联干净。
+- **`casbin_rule`**: 后端 RBAC 引擎（Casbin）的策略存储表。涵盖了 `ptype`, `v0`~`v5` 的组合存储。
 
 #### 2. 动态路由体系
 
-| 表名          | 说明                     | 关键字段                                           |
-| ------------- | ------------------------ | -------------------------------------------------- |
-| `routes`      | 前端路由配置（树形结构） | `parent_id`(自引用), `path`, `component`, `meta_*` |
-| `route_roles` | 路由-角色访问控制        | `route_id`, `role`                                 |
-| `route_auths` | 路由-操作权限控制        | `route_id`, `auth`                                 |
+前端菜单与页面权限直接由数据库驱动。
 
-#### 3. 设备管理（业务扩展）
+- **`routes`**: 页面路由树表，利用 `parent_id` 形成自引用的树形层级。保存菜单标题（`meta_title`）、图标（`meta_icon`）及前端组件路径等。
+- **`route_roles`** 与 **`route_auths`**: 决定了哪些角色可以看见哪些路由，以及进入此路由页面需要具备哪些细粒度权限。
 
-| 表名              | 说明             | 关键字段                                                            |
-| ----------------- | ---------------- | ------------------------------------------------------------------- |
-| `device_registry` | 物联网设备注册表 | `device_id`(唯一), `device_name`, `owner_username`, `registered_at` |
+#### 3. 业务扩展示例
 
-#### 外键策略
-
-所有关联表均使用 `ON DELETE CASCADE`，确保：
-
-- 删除用户时自动清理关联的角色和权限
-- 删除路由时自动清理子路由和权限关联
-- 数据一致性由数据库层自动维护
-
----
+- **`device_registry`**: 记录硬件设备的设备 ID、名称和所属用户，展示了如何在此体系中挂载具体的业务实体。
 
 ### 0002_seed.sql - 初始种子数据
 
-本文件为系统注入初始数据，包含以下内容：
+这是保证系统能够在空白数据库首次启动即可正常运作的基石数据。
 
-#### 1. 默认用户
-
-| 用户名   | 密码       | 角色   | 权限               |
-| -------- | ---------- | ------ | ------------------ |
-| `admin`  | `admin123` | admin  | 全部权限 (`*:*:*`) |
-| `common` | `admin123` | common | btn:add, btn:edit  |
-
-#### 2. 权限定义
-
-```sql
-*:*:*                     -- 超级管理员全部权限
-permission:btn:add       -- 按钮新增权限
-permission:btn:edit      -- 按钮编辑权限
-permission:btn:delete    -- 按钮删除权限
-```
-
-#### 3. 示例路由结构
-
-```
-权限管理 (/permission)
-├── 用户注册管理 (/permission/page/index)
-└── 按钮权限 (/permission/button)
-    ├── 路由返回按钮权限 (/permission/button/router)
-    └── 登录接口返回按钮权限 (/permission/button/login)
-```
-
-#### 4. 设备注册
-
-预注册了一个开发设备 `device-localhost-001`，用于演示设备管理功能。
-
-#### 5. RBAC 策略种子
-
-初始化写入 Casbin RBAC 策略（`casbin_rule`）：
-
-- `admin` 可执行用户管理、设备创建、控制下发、仪表盘查看
-- `operator` 可执行控制下发
-- `guest` 可查看仪表盘
-- `common` 兼容映射到仪表盘查看
-
----
+- 注入了超级管理员 `admin` 和普通演示账号 `common`（密码皆为 `admin123`）。
+- 定义了最基础的按钮级操作权限 (`permission:btn:add`, `edit`, `delete`)。
+- 填充了“权限管理”、“用户注册管理”等一套完整的前端菜单（路由表）及角色关联配置。
+- **最后特别引入了 `setval` 指令**，将序列值同步到当前最大 ID 以防未来新插入数据发生主键冲突。
 
 ### 0003_legacy_offline_cleanup.sql - 遗留数据清理
 
-本脚本用于从旧版本（纯前端网络版）升级时的数据清洗：
+系统为了适应“纯局域网 / 断网环境”下的内网部署，必须切断对外部网络资源的请求。
 
-#### 清理目标
+- 通过正则风格 `LIKE` 语句查找头像(`avatar`) 或菜单图标(`meta_icon`) 字段中的 `http://`, `https://` 或自适应 `//`。
+- 将这些带有外部 CDN 依赖的数据清空或置为 `NULL`。
 
-1. **用户头像外链**：将 `http://`、`https://`、`//` 开头的头像 URL 清空
-2. **路由图标外链**：将包含冒号的 Iconify 图标格式和外链图标设置为 NULL
+### 0004_user_registration_extension.sql - 用户注册与生命周期扩展
 
-#### 执行条件
+系统业务迭代时的典型表结构升级脚本。
 
-- 仅在首次启动时执行一次
-- 通过 `app_migrations` 表记录执行状态
-- 具有幂等性，重复执行不会造成数据丢失
+- **增加字段**: 为 `users` 表通过 `ALTER TABLE ADD COLUMN IF NOT EXISTS` 追加了 `phone`、`account_is_permanent`、`account_valid_days` 等账号有效期与追踪相关字段。
+- **补充默认值**: 使用 `COALESCE` 与 `EXTRACT(EPOCH FROM NOW())` 赋予老数据安全的默认值（老账号统筹为永久有效）。
+- **优化性能**: 为新增的 `phone` 和 `account_expire_at` 字段增加了索引 `CREATE INDEX`，加速手机号查询与后台定时清理过期账号的任务。
+
+### 0005 & 0006 - 路由树的微调清理
+
+- **0005**：通过特定的 `id` 和 `path` 对准某个路由行，把其英文的抽象概念名称重命名为业务性的 “用户注册管理”。
+- **0006**：直接利用 `DELETE` 和 `LIKE` 删除了不需要的示例层级。基于 PostgreSQL 的外键级联删除特性，那些多对多关系中的角色绑定记录也随之安全消失，不会留下孤儿数据。
 
 ---
 
 ## 数据库架构图
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              users                                      │
-│  id | username | password | nickname | avatar | is_active            │
+│  id | username | password | nickname | avatar | is_active | created_at... │
 └─────────────────────────────────────────────────────────────────────────┘
          │                              │
-         │ 1:N                          │ N:M
+         │ 1:N                          │ N:M (ON DELETE CASCADE)
          ▼                              ▼
 ┌──────────────────┐          ┌─────────────────────────┐
 │    user_roles    │          │   user_permissions      │
@@ -172,175 +130,49 @@ permission:btn:delete    -- 按钮删除权限
 │  id | parent_id | path | name | component | meta_title | meta_icon   │
 └─────────────────────────────────────────────────────────────────────────┘
          │                              │
-         │ 1:N                          │ N:M
+         │ 1:N                          │ N:M (ON DELETE CASCADE)
          ▼                              ▼
 ┌──────────────────┐          ┌─────────────────┐
 │    route_roles   │          │   route_auths   │
 │ route_id |  role │          │ route_id | auth │
 └──────────────────┘          └─────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         device_registry                                 │
-│  id | device_id | device_name | owner_username | registered_at        │
-└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 开发指南
 
-### 添加新表
+随着需求增加，修改数据库结构不可避免。为保持系统稳定，请遵循以下规范。
 
-1. 在 `0001_schema.sql` 中添加 `CREATE TABLE` 语句
-2. 使用 `IF NOT EXISTS` 确保幂等性
-3. 合理设计外键关联，使用 `ON DELETE CASCADE`
+### 迁移命名与注册规范
 
-**示例：添加系统配置表**
+1. **新建迁移脚本文件**: 必须使用 `000{N}_{下划线分隔的英文描述}.sql` 命名（保证按字母序恰好是你希望的执行顺序）。
+2. **在 Rust 代码中注册**: 脚本仅放在文件夹里不会自动生效。请前往 `src-tauri/src/db/mod.rs`（或对应负责拉起迁移的入口文件中），将其引入到执行数组内：
+   ```rust
+   // 例如
+   const MIGRATIONS: &[&str] = &[
+       include_str!("migrations/0001_schema.sql"),
+       include_str!("migrations/0002_seed.sql"),
+       // ...
+       include_str!("migrations/0007_new_feature_added.sql"),
+   ];
+   ```
 
-```sql
-CREATE TABLE IF NOT EXISTS system_config (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  key TEXT NOT NULL UNIQUE,      -- 配置键
-  value TEXT NOT NULL,            -- 配置值
-  description TEXT,              -- 说明
-  created_at INTEGER NOT NULL,   -- 创建时间
-  updated_at INTEGER NOT NULL    -- 更新时间
-);
-```
+### 如何安全地添加新表/新字段
 
----
+**严禁**直接回退修改 `0001_schema.sql` (这会导致已上线的旧版本节点不更新)。
+所有变动必须是以往后追加新脚本文件 (如 `0007_xxx.sql`) 的形式出现。
 
-### 修改现有表结构
-
-**不要直接修改已有表结构**，而是创建新的迁移脚本。
-
-1. 创建新文件 `0004_xxx.sql`
-2. 使用 `ALTER TABLE` 添加新字段（SQLite 支持有限）
-3. 如需复杂变更，可使用 `CREATE TABLE ... AS` 重建表
-
-**示例：添加配置表种子数据**
-
-```sql
--- 0004_seed_system_config.sql
-
--- 添加系统配置
-INSERT OR IGNORE INTO system_config (id, key, value, description, created_at, updated_at) VALUES
-  (1, 'app_name', '能源管理系统', '应用名称', 1772150000000, 1772150000000),
-  (2, 'version', '1.0.0', '系统版本', 1772150000000, 1772150000000);
-```
+- **新建表**时：一定要带上 `CREATE TABLE IF NOT EXISTS`。
+- **新增字段**时：PostgreSQL 支持 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`。
+- **涉及业务逻辑迁移**时：在添加新字段后，紧跟 `UPDATE` 语句给老数据分配恰当的默认值。
 
 ---
 
-### 添加新迁移
+## 离线环境与安全设计原则
 
-#### 步骤 1：创建迁移文件
+因为项目常部署于安全隔离网络（离线环境）：
 
-在 `migrations/` 目录下创建新文件，命名格式：`000{N+1}_{描述}.sql`
-
-#### 步骤 2：在 Rust 端注册
-
-编辑 `src-tauri/src/db/mod.rs`，在迁移列表中添加新文件：
-
-```rust
-// 示例代码
-const MIGRATIONS: &[&str] = &[
-    include_str!("migrations/0001_schema.sql"),
-    include_str!("migrations/0002_seed.sql"),
-    include_str!("migrations/0003_legacy_offline_cleanup.sql"),
-    // 添加新迁移
-    include_str!("migrations/0004_xxx.sql"),
-];
-```
-
-#### 步骤 3：执行验证
-
-运行应用，检查数据库是否正确创建：
-
-```bash
-pnpm tauri:dev
-```
-
----
-
-## 离线安全设计原则
-
-为确保系统在纯内网环境下正常运行，遵循以下设计原则：
-
-### 1. 头像与图片
-
-- 用户头像存储为空字符串，触发前端使用本地默认头像
-- 禁止在数据库中存储外链 URL
-
-### 2. 菜单图标
-
-- 使用本地 Iconify 图标（需预先打包到前端）
-- 禁止使用 CDN 图标
-
-### 3. 静态资源
-
-- 所有前端资源通过 Vite 打包到应用内
-- 无需外部网络请求
-
-### 4. 数据清理
-
-- `0003_legacy_offline_cleanup.sql` 确保旧数据外链被清理
-
----
-
-## 常见问题
-
-### Q1: 如何重置数据库？
-
-删除 SQLite 数据库文件，应用重启后会自动重新创建：
-
-- Windows: `%APPDATA%\com.pureadmin.thin\db\pure-admin-thin.sqlite3`
-- 开发环境: `<项目目录>/db/pure-admin-thin.sqlite3`
-
-### Q2: 如何查看当前数据库状态？
-
-使用 SQLite 工具连接数据库：
-
-```bash
-sqlite3 pure-admin-thin.sqlite3
-```
-
-常用命令：
-
-```sql
--- 查看所有表
-.tables
-
--- 查看表结构
-.schema users
-
--- 查看用户数据
-SELECT * FROM users;
-
--- 查看迁移记录
-SELECT * FROM app_migrations;
-```
-
-### Q3: 迁移脚本执行失败怎么办？
-
-1. 检查 SQLite 版本是否兼容
-2. 查看 Rust 控制台错误日志
-3. 删除数据库文件重新尝试
-
-### Q4: 如何扩展设备管理功能？
-
-`device_registry` 表是业务扩展的基石，可添加以下字段：
-
-```sql
--- 扩展设备表
-ALTER TABLE device_registry ADD COLUMN device_type TEXT;
-ALTER TABLE device_registry ADD COLUMN firmware_version TEXT;
-ALTER TABLE device_registry ADD COLUMN last_heartbeat INTEGER;
-```
-
----
-
-## 相关文档
-
-- [数据库模块 README](../README.md) - 数据库模块整体介绍
-- [Tauri 框架约束](../docs/tauri-framework-constraints.md) - Tauri 开发规范
-- [开发进度文档](../docs/development-progress.md) - 项目进度跟踪
+1. **外部链接阻断**：永远不向数据库中写入例如 Google Fonts、外部 CDN Icon 或云存储上的图像 URL，除非你在后续步骤中有独立的镜像缓存代理层。
+2. **逻辑软删除与生命周期**：尽可能利用 `is_active` 或 `account_expire_at` 字段做判断限制，而非物理删除，以保留重要操作审计。
+3. **安全主键策略**：PostgreSQL 推荐使用 `BIGSERIAL` (对应 Rust `i64`) 作为自增的主键，它有着超长的整数跨度，能抵御极高频次的插拔写入。

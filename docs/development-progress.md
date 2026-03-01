@@ -1571,3 +1571,27 @@ Use this file as a required append-only task log after each completed task.
   - Added this progress entry.
 - Next step:
   - N/A
+
+## 2026-03-01 11:14 - Ignore runtime log files from Git tracking
+
+- Scope:
+  - Prevented runtime `.log` files from repeatedly dirtying the working tree.
+  - Added ignore patterns for both root-level and `src-tauri` log directories.
+  - Removed existing tracked log files from Git index while keeping local files.
+- Related plan file in `plan/`:
+  - `plan/2026-03-01-1112-ignore-runtime-log-tracking.md`
+- Changed files:
+  - `.gitignore`
+  - `src-tauri/.gitignore`
+  - `plan/2026-03-01-1112-ignore-runtime-log-tracking.md`
+  - `docs/development-progress.md`
+- Verification:
+  - command: `git status --short --branch`
+  - result: pending (run after commit/push)
+- Documentation updated:
+  - Added this progress entry.
+- Next step:
+  - N/A
+- Verification:
+  - command: `git status --short --branch` (post-commit)
+  - result: pending
